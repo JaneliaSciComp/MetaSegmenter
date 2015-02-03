@@ -19,7 +19,9 @@ if nargin > 1
 end 
 
 % Original image    
-I = imread(image_file); I = mat2gray(I(:,:,1));
+I = imread(image_file); 
+I = I(:,:,1);
+Igr = mat2gray(I);
 disp(['min(I)=' num2str(min(min(I))) ' max(I)=' num2str(max(max(I))) ' mean2(I)=' num2str(mean2(I)) ' std2(I)=' num2str(std2(I))]);
 In = round(double(I)*255.0/max(max(double(I))));
 disp(['min(In)=' num2str(min(min(In))) ' max(In)=' num2str(max(max(In))) ' mean2(In)=' num2str(mean2(In)) ' std2(In)=' num2str(std2(In))]);
@@ -29,10 +31,13 @@ waitforbuttonpress;
 close all;
 
 % Black-white image
-num_bin_locs = 1001;
-[N,bin_locs] = imhist(I,num_bin_locs);
+num_edges = 101;
+%V = reshape(I, [1 numel(I)]);
+[N,edges] = my_imhist(I,num_edges);
+%[N,edges] = histcounts(I,num_edges-1)
+
 Nsum = sum(N);
-disp(['numel(N)=' num2str(numel(N)) ' Nsum=' num2str(Nsum) ' numel(I)=' num2str(numel(I)) ' numel(bin_locs)=' num2str(numel(bin_locs))]);
+disp(['numel(N)=' num2str(numel(N)) ' Nsum=' num2str(Nsum) ' numel(I)=' num2str(numel(I)) ' numel(edges)=' num2str(numel(edges))]);
 cum_hist = get_cumulative_histogram(N, Nsum);
 %figure
 %plot(cum_hist);
@@ -40,7 +45,7 @@ cum_hist = get_cumulative_histogram(N, Nsum);
 %waitforbuttonpress;
 %close all;
 
-threshold = get_threshold_intensity(N, frac_black, bin_locs);
+threshold = get_threshold_intensity(N, frac_black, edges);
 disp(['final threshold_intensity=' num2str(threshold)]);
 disp(['size(I)=' num2str(size(I)) ' class(I)=' class(I(1,1))]);
 Ibw = my_im2bw(I, threshold);  
@@ -78,6 +83,8 @@ drawnow;
 waitforbuttonpress;
 close all;
 
+% -----------------------------------------------------------------------------
+
 function cum_hist = get_cumulative_histogram(N, Nsum)
     cum_hist = zeros(numel(N));
     my_sum = 0;
@@ -88,7 +95,7 @@ function cum_hist = get_cumulative_histogram(N, Nsum)
 
 % -----------------------------------------------------------------------------
 
-function threshold_intensity = get_threshold_intensity(N, frac_black, bin_locs)
+function threshold_intensity = get_threshold_intensity(N, frac_black, edges)
     Ncurr = 0;
     Nsum = sum(N);
     threshold_count = double(Nsum) * frac_black;
@@ -100,23 +107,27 @@ function threshold_intensity = get_threshold_intensity(N, frac_black, bin_locs)
     while i<= num_bins 
         i = i + 1;
         Ncurr = Ncurr + N(i);
-        disp(['i=' num2str(i) ' frac_black=' num2str(frac_black) ' Ncurr/Nsum=' num2str(Ncurr/Nsum) ' (Ncurr + N(i))/Nsum=' num2str((Ncurr + N(i))/Nsum)]);
+%       disp(['i=' num2str(i) ' frac_black=' num2str(frac_black) ' Ncurr/Nsum=' num2str(Ncurr/Nsum) ' (Ncurr + N(i))/Nsum=' num2str((Ncurr + N(i))/Nsum)]);
         if Ncurr + N(i) >= threshold_count
-            deltaI = double(bin_locs(i+1) - bin_locs(i));
+            deltaI = double(edges(i+1) - edges(i));
             deltaN = double(N(i));
-            threshold_intensity = bin_locs(i) + deltaI*(double(threshold_count - Ncurr)/deltaN);
-            disp(['bin_locs(i)=' num2str(bin_locs(i)) ' deltaI=' num2str(bin_locs(i+1) - bin_locs(i)) ' threshold_intensity=' num2str(threshold_intensity)]); 
+            threshold_intensity = edges(i) + deltaI*(double(threshold_count - Ncurr)/deltaN);
+            disp(['edges(i)=' num2str(edges(i)) ' deltaI=' num2str(edges(i+1) - edges(i)) ' threshold_intensity=' num2str(threshold_intensity)]); 
             break
         end
         Ncurr = Ncurr + N(i);
     end
 
+% -----------------------------------------------------------------------------
+
 function output_usage_message()
     disp('Usage: MS_S2D_SegmentNeurons2D(image_file [ ,fraction_of_black ])');
     return;
 
+% -----------------------------------------------------------------------------
+
 function L = generate_labels_matrix(Ibwf)
-    CC = bwconncomp(Ibwf); % NOTE: this fucntion does not label holes
+    CC = bwconncomp(Ibwf); % NOTE: this function does not label holes
     Nc = CC.NumObjects;
     imsize = CC.ImageSize;
 
@@ -135,5 +146,22 @@ function L = generate_labels_matrix(Ibwf)
 
 function Ibw = my_im2bw(I, threshold_intensity)
    Ibw = logical(zeros(size(I)));
-   Ibw(I > threshold_intensity) = logical(1);
-   disp(['my fraction of black=' num2str((numel(Ibw)-sum(sum(Ibw)))/numel(Ibw))]);
+   Ibw(I > round(threshold_intensity)) = logical(1);
+   disp(['threshold_intensity=' num2str(threshold_intensity) ' my fraction of black=' num2str((double(numel(Ibw)-sum(sum(Ibw))))/double(numel(Ibw)))]);
+
+% -----------------------------------------------------------------------------
+
+function [N,edges] = my_imhist(I,num_edges);
+    Imax = max(max(I));
+    Imin = min(min(I));
+    step = double(Imax - Imin)/double(num_edges-1);
+    N     = zeros(num_edges-1);
+    edges = zeros(num_edges);
+    for i=1:num_edges
+        edges(i) = double(Imin) + double(i-1)*double(Imax - Imin);
+    end
+    for i=1:(num_edges-1)
+        N(i) = sum(sum(I >= edges(i) & I < edges(i+1)));
+    end
+    N(num_edges-1) = N(num_edges-1) + sum(sum(I == edges(num_edges)));
+
