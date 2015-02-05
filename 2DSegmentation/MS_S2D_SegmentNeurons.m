@@ -2,13 +2,8 @@
 % Copyright (C) 2015 by Howard Hughes Medical Institute.
 %
 
-%
-% Purpose: detect the location of "dark" structures, 
-% such as mitochondria, T-,E-bars, and glial cells 
-% in a 2D intensity image  
-% 
-
-function Ibwd = MS_S2D_DetectDarkStructures2D(inputName,fracBlack,varargin)   
+% Identify regions corresponding to neural cells
+function Ibwn = MS_S2D_SegmentNeurons(inputName,fracBlack,varargin)   
     warning off;
     clc;
     try
@@ -22,11 +17,11 @@ function Ibwd = MS_S2D_DetectDarkStructures2D(inputName,fracBlack,varargin)
             options.dispOn    = p.Results.dispOn;
             options.dispOn2   = p.Results.dispOn2;
             options.closeAll  = p.Results.closeAll;
-            options.nx        = p.Results.nx;
-            options.ny        = p.Results.ny;
-            options.ix        = p.Results.ix;
-            options.iy        = p.Results.iy;
-            options.outName   = p.Results.outName;
+            options.nx        = p.Results.nx;        
+            options.ny        = p.Results.ny;        
+            options.ix        = p.Results.ix;        
+            options.iy        = p.Results.iy;       
+            options.outName   = p.Results.outName; 
         else
             compiled_code     = 1;    % compiled code
             options.fracBlack =       str2double(p.Results.fracBlack);
@@ -37,7 +32,7 @@ function Ibwd = MS_S2D_DetectDarkStructures2D(inputName,fracBlack,varargin)
             options.nx        = int32(str2double(p.Results.nx));
             options.ny        = int32(str2double(p.Results.ny));
             options.ix        = int32(str2double(p.Results.ix));
-            options.iy        = int32(str2double(p.Results.iy));
+            options.iy        = int32(str2double(p.Results.iy));    
             options.outName   =                  p.Results.outName;
         end
     catch
@@ -45,15 +40,15 @@ function Ibwd = MS_S2D_DetectDarkStructures2D(inputName,fracBlack,varargin)
         return
     end
 
-    disp(['In MS_S2D_DetectDarkStructures2D: options.dispOn2=' num2str(options.dispOn2)]); 
-    frac_black = 0.5;
+    disp(['In MS_S2D_SegmentNeurons: options.dispOn2=' num2str(options.dispOn2)]);
+    frac_black = 0.34;
     if options.fracBlack > 0
         frac_black = options.fracBlack;
     end
 
-    % Input image data
+    % Input image data  
     if strcmp(class(inputName),'char') && exist(inputName, 'file') == 2   % input is image file
-        I = imread(inputName);
+        I = imread(inputName); 
     else
         I = inputName;                 % input is image
     end
@@ -62,15 +57,14 @@ function Ibwd = MS_S2D_DetectDarkStructures2D(inputName,fracBlack,varargin)
     im_size = size(I);
     [xpixels, ypixels] = get_pixels_to_show(im_size, options);
     Igr = mat2gray(I(xpixels,ypixels,1));
-    In = round(double(Igr)*255.0/max(max(double(Igr))));
+    In  = round(double(Igr)*255.0/max(max(double(Igr))));
     if options.verbose
-        disp(['min(Igr)=' num2str(min(min(Igr))) ' max(I)=' num2str(max(max(Igr))) ...
-              ' mean2(I)=' num2str(mean2(Igr)) ' std2(Igr)=' num2str(std2(Igr))]);
+        disp(['min(I)=' num2str(min(min(Igr))) ' max(Igr)=' num2str(max(max(Igr))) ...
+              ' mean2(Igr)=' num2str(mean2(Igr)) ' std2(Igr)=' num2str(std2(Igr))]);
         disp(['min(In)=' num2str(min(min(In))) ' max(In)=' num2str(max(max(In))) ...
               ' mean2(In)=' num2str(mean2(In)) ' std2(In)=' num2str(std2(In))]);
     end
     if options.dispOn
-        figure(1)
         imshow(Igr);
         title('Original image (Igr)');
         waitforbuttonpress;
@@ -88,8 +82,6 @@ function Ibwd = MS_S2D_DetectDarkStructures2D(inputName,fracBlack,varargin)
     threshold = MS_S2D_GetThresholdIntensity(Igr, options.verbose, frac_black, 1001);
     Ibw = im2bw(Igr, threshold);
     Ibw = bwareaopen(Ibw,20);
-    Ibw  = adjust_edges(Ibw, 1);
-    % Ibw  = imfill(Ibw, 'holes');
     if options.verbose
         disp(['final threshold_intensity=' num2str(threshold)]);
         disp(['size(Igr)=' num2str(size(Igr)) ' class(Igr)=' class(Igr(1,1))]);
@@ -97,68 +89,38 @@ function Ibwd = MS_S2D_DetectDarkStructures2D(inputName,fracBlack,varargin)
         disp(['my frac_black=' num2str(sum(sum(Ibw == 0))/numel(Ibw))]);
     end
     if options.dispOn
-        figure(2)
-        imshow(Ibw), title('Black-white image without holes (Ibw)')
+        figure
+        imshow(Ibw), title('Black-white image (Ibw)')
+        drawnow;
         waitforbuttonpress;
         if options.closeAll
             close all;
         end
     end
 
-    % Handling complement
-    Ibwc = imcomplement(Ibw);
-    Ibwc = bwareaopen(Ibwc,200);
-    %Ibwc = adjust_edges(Ibwc, 0);
-    Ibwc = imcomplement(Ibwc);
-    %Ibwc = imfill(Ibwc, 'holes');
+    % Fill holes and open gaps
+    Ibw = adjust_edges(Ibw, 1);
+    Ibwf = imfill(Ibw, 'holes');
+    Ibwn = bwareaopen(Ibwf,20);
     if options.dispOn
-        figure(3)
-        imshow(Ibwc), title('Complement of dilated black-white image (Ibwc)')
+        imshow(Ibwn)
+        drawnow;
         waitforbuttonpress;
         if options.closeAll
             close all;
         end
     end
 
-    % Dilated BW image
-    %bwboundaries();
-    Ibwcd = imdilate(Ibwc, strel('disk', 2));
-    if options.dispOn
-        figure(4)
-        imshow(Ibwcd), title('Dilated, inversed, filled and eroded black-white image (Ibwd)')
-        waitforbuttonpress;
-        if options.closeAll
-            close all;
-        end
-    end
-
-    % Inversed 
-    Ibwcdc = imcomplement(Ibwcd);
-    Ibwcdc = imerode(Ibwcdc, strel('disk', 2));
-    Ibwcdc = bwareaopen(Ibwcdc,200);
-    Ibwcdc = imfill(Ibwcdc, 'holes');
-    Ibwcdc = imdilate(Ibwcdc, strel('disk', 2));
-    Ibwcdc = imfill(Ibwcdc, 'holes');
-    Ibwd   = adjust_edges(Ibwcdc, 0);
-    if options.dispOn
-        figure(5)
-        imshow(Ibwd), title('Final (dilated, inversed, filled and eroded) black-white image (Ibwd)')
-        waitforbuttonpress;
-        if options.closeAll
-            close all;
-        end
-    end
-
-    % Output results to file
+    % Optionally output results to file
     if length(options.outName) > 0
-        imwrite(Ibwd, options.outName);
+        imwrite(Ibwn, options.outName);
     end
 
     % Display labels
-    disp(['In MS_S2D_DetectDarkStructures2D: options.dispOn2=' num2str(options.dispOn2)]);
-    if (options.dispOn || options.dispOn2)
+    disp(['In MS_S2D_SegmentNeurons: options.dispOn2=' num2str(options.dispOn2)]);
+    if (options.dispOn || options.dispOn2) 
         % Label components in the inverse BW image
-        L = generate_labels_matrix(Ibwd, options.verbose);
+        L = generate_labels_matrix(Ibwn, options.verbose);
 
         % Color components
         if options.dispOn
@@ -176,7 +138,43 @@ function Ibwd = MS_S2D_DetectDarkStructures2D(inputName,fracBlack,varargin)
 
 % -----------------------------------------------------------------------------
 
-% Add zero padding at the adges,
+function output_usage_message()
+    disp('Usage: MS_S2D_SegmentNeurons(inputName,fracBlack,[,parameters])');
+    disp('Required arguments:');
+    disp('    inputName    - name of input data (file or image)');
+    disp('    fracBlack    - desired fraction of black for black/wite conversion');
+    disp('Optional parameters, specified as parameter-value pairs:');
+    disp('    dispOn       - weather or not to display covariance matrix (default=0)');
+    disp('    closeAll     - close previous image when displayong next (default=1)');
+    disp('    nx, ny       - numbers of section to which subdivide the image (defaults=1)');
+    disp('    ix, iy       - ids of the section to be processed/shown (defaults=1)');
+    disp('    outName      - name of output file (default='', no output)');
+    disp('    verbose      - weather or not to increase verbosity of output (default=0)');
+    return;
+
+% -----------------------------------------------------------------------------
+
+function L = generate_labels_matrix(Ibwf, verbose)
+    CC = bwconncomp(Ibwf); % NOTE: this function does not label holes
+    Nc = CC.NumObjects;
+    imsize = CC.ImageSize;
+
+    if verbose
+        disp(['imsize=' num2str(imsize) ' num_comp=' num2str(Nc) ]);
+    end
+    L = zeros(imsize);
+    for k = 1:Nc
+        for m=1:numel(CC.PixelIdxList{k})
+            lin_ind = CC.PixelIdxList{k}(m);
+            [r, c] = ind2sub(CC.ImageSize, lin_ind);
+%           disp(['lin_ind=' num2str(lin_ind) ' r=' num2str(r) ' c=' num2str(c)]);
+            L(r,c) = k;
+        end
+    end
+
+% -----------------------------------------------------------------------------
+
+% Add zero padding at the adges, 
 % to ensure thgat that entire image != one BW component
 function Ibw = adjust_edges(Ibw, value)
     size1 = size(Ibw, 1);
@@ -208,22 +206,6 @@ function Ibw = adjust_edges(Ibw, value)
 
 % -----------------------------------------------------------------------------
 
-function output_usage_message()
-    disp('Usage: MS_S2D_DetectDarkStructures2D(image_file,fraction_of_black[,parameters])');
-    disp('Required arguments:');
-    disp('    inputName    - name of input data (file or image)');
-    disp('    fracBlack    - desired fraction of black for black/wite conversion');
-    disp('Optional parameters, specified as parameter-value pairs:');
-    disp('    dispOn       - weather or not to display covariance matrix (default=0)');
-    disp('    closeAll     - close previous image when displayong next (default=1)');
-    disp('    nx, ny       - numbers of section to which subdivide the image (defaults=1)');
-    disp('    ix, iy       - ids of the section to be processed/shown (defaults=1)');
-    disp('    outName      - name of output file (default='', no output)');
-    disp('    verbose      - weather or not to increase verbosity of output (default=0)');
-    return;
-
-% -----------------------------------------------------------------------------
-
 function [xpixels, ypixels] = get_pixels_to_show(im_size, options)
     xlen = round(im_size(1)/options.nx);
     ylen = round(im_size(2)/options.ny);
@@ -236,25 +218,5 @@ function [xpixels, ypixels] = get_pixels_to_show(im_size, options)
              ' ybeg=' num2str(ybeg) ' yend=' num2str(yend)]);
     end
     xpixels = [xbeg:xend];
-    ypixels = [ybeg:yend];
-
-% -----------------------------------------------------------------------------
-
-function L = generate_labels_matrix(Ibwf, verbose)
-    CC = bwconncomp(Ibwf); % NOTE: this function does not label holes
-    Nc = CC.NumObjects;
-    imsize = CC.ImageSize;
-
-    if verbose
-        disp(['imsize=' num2str(imsize) ' num_comp=' num2str(Nc) ]);
-    end
-    L = zeros(imsize);
-    for k = 1:Nc
-        for m=1:numel(CC.PixelIdxList{k})
-            lin_ind = CC.PixelIdxList{k}(m);
-            [r, c] = ind2sub(CC.ImageSize, lin_ind);
-%           disp(['lin_ind=' num2str(lin_ind) ' r=' num2str(r) ' c=' num2str(c)]);
-            L(r,c) = k;
-        end
-    end
+    ypixels = [ybeg:yend]; 
 

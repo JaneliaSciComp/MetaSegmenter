@@ -10,28 +10,29 @@
 % NOTE2: edges are computed incorrectly by Matlab's imhist function,
 %        so a custom function has been implemented for compuring the edges
 
-function threshold = MS_S2D_GetThresholdIntensity(Igr, varargin)
+function threshold = MS_S2D_GetThresholdIntensity(Igr,verbose,varargin)
 frac_black = 0.5;
 num_edges  = 1001;
-if nargin == 0 || nargin > 3
+if nargin == 0 || nargin > 4
     output_usage_message();
     return
-elseif nargin == 2
-    frac_black = varargin{1};
 elseif nargin == 3
+    frac_black = varargin{1};
+elseif nargin == 4
     frac_black = varargin{1};
     num_edges  = varargin{2};
 end
-
 N     = imhist(Igr,num_edges);      % counts
 edges = compute_edges(num_edges); % using a custom function for edges
 Nsum  = sum(N);
-disp(['numel(N)=' num2str(numel(N)) ' Nsum=' num2str(Nsum) ...
-      ' numel(Igr)=' num2str(numel(Igr)) ' numel(edges)=' num2str(numel(edges))]);
+if verbose
+    disp(['numel(N)=' num2str(numel(N)) ' Nsum=' num2str(Nsum) ...
+          ' numel(Igr)=' num2str(numel(Igr)) ' numel(edges)=' num2str(numel(edges))]);
+end
 cum_hist = get_cumulative_histogram(N, Nsum);
 
 % Black-white image
-threshold = get_threshold_intensity(cum_hist, frac_black, edges);
+threshold = get_threshold_intensity(cum_hist, frac_black, edges, verbose);
 
 % -----------------------------------------------------------------------------
 
@@ -54,7 +55,8 @@ function cum_hist = get_cumulative_histogram(N, Nsum)
 
 % -----------------------------------------------------------------------------
 
-function threshold_intensity = get_threshold_intensity(cum_hist, frac_black, edges)
+function threshold_intensity = get_threshold_intensity(cum_hist, frac_black,...
+                                                       edges, verbose)
     threshold_intensity = 0;
     num_bins = numel(cum_hist);
     i = 0;
@@ -64,8 +66,10 @@ function threshold_intensity = get_threshold_intensity(cum_hist, frac_black, edg
             deltaI = double(edges(i) - edges(i-1));
             deltaH = cum_hist(i) - cum_hist(i-1);
             threshold_intensity = edges(i-1) + deltaI*(frac_black - cum_hist(i-1))/deltaH;
-            disp(['edges(i)=' num2str(edges(i)) ' cum_hist(i)=' num2str(cum_hist(i))...
-                  ' threshold_intensity=' num2str(threshold_intensity)]);
+            if verbose > 0
+                disp(['edges(i)=' num2str(edges(i)) ' cum_hist(i)=' num2str(cum_hist(i))...
+                      ' threshold_intensity=' num2str(threshold_intensity)]);
+            end
             break
         end
     end
