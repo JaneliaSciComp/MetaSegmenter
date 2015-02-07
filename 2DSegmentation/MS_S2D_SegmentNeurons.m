@@ -12,16 +12,16 @@ function Ibwn = MS_S2D_SegmentNeurons(inputName,fracBlack,varargin)
 
         compiled_code = 0;
         if isnumeric(fracBlack)     % original Matlab code
-            options.fracBlack = p.Results.fracBlack;
-            options.verbose   = p.Results.verbose;
-            options.dispOn    = p.Results.dispOn;
-            options.dispOn2   = p.Results.dispOn2;
-            options.closeAll  = p.Results.closeAll;
-            options.nx        = p.Results.nx;        
-            options.ny        = p.Results.ny;        
-            options.ix        = p.Results.ix;        
-            options.iy        = p.Results.iy;       
-            options.outName   = p.Results.outName; 
+            options.fracBlack =         p.Results.fracBlack;
+            options.verbose   = logical(p.Results.verbose);
+            options.dispOn    = logical(p.Results.dispOn);
+            options.dispOn2   = logical(p.Results.dispOn2);
+            options.closeAll  = logical(p.Results.closeAll);
+            options.nx        =   int32(p.Results.nx);        
+            options.ny        =   int32(p.Results.ny);        
+            options.ix        =   int32(p.Results.ix);        
+            options.iy        =   int32(p.Results.iy);       
+            options.outName   =   int32(p.Results.outName); 
         else
             compiled_code     = 1;    % compiled code
             options.fracBlack =       str2double(p.Results.fracBlack);
@@ -99,9 +99,10 @@ function Ibwn = MS_S2D_SegmentNeurons(inputName,fracBlack,varargin)
     end
 
     % Fill holes and open gaps
-    Ibw = adjust_edges(Ibw, 1);
+    Ibw  = add_boundary_padding(Ibw, 1);
     Ibwf = imfill(Ibw, 'holes');
     Ibwn = bwareaopen(Ibwf,20);
+    Ibwn = add_boundary_padding(Ibwn, 0);
     if options.dispOn
         imshow(Ibwn)
         drawnow;
@@ -117,22 +118,23 @@ function Ibwn = MS_S2D_SegmentNeurons(inputName,fracBlack,varargin)
     end
 
     % Display labels
-    disp(['In MS_S2D_SegmentNeurons: options.dispOn2=' num2str(options.dispOn2)]);
+    disp(['In MS_S2D_SegmentNeurons: options.dispOn=' num2str(options.dispOn) ' options.dispOn2=' num2str(options.dispOn2)]);
+    disp(['class(options.dispOn)=' class(options.dispOn) ' class(options.dispOn2)=' class(options.dispOn2)]);
+%   disp(['options.dispOn || options.dispOn2 = ' bool2char(options.dispOn || options.dispOn2)]);
     if (options.dispOn || options.dispOn2) 
+        disp('Generating labels...');
         % Label components in the inverse BW image
         L = generate_labels_matrix(Ibwn, options.verbose);
 
         % Color components
-        if options.dispOn
-            Lrgb = label2rgb(L, 'jet', 'w', 'shuffle');
-            figure
-            imshow(Lrgb)
-            title('Colored watershed label matrix (Lrgb)')
-            drawnow;
-            waitforbuttonpress;
-            if options.closeAll
-                close all;
-            end
+        Lrgb = label2rgb(L, 'jet', 'w', 'shuffle');
+        figure
+        imshow(Lrgb)
+        title('Colored watershed label matrix (Lrgb)')
+        drawnow;
+        waitforbuttonpress;
+        if options.closeAll
+            close all;
         end
     end
 
@@ -176,7 +178,7 @@ function L = generate_labels_matrix(Ibwf, verbose)
 
 % Add zero padding at the adges, 
 % to ensure thgat that entire image != one BW component
-function Ibw = adjust_edges(Ibw, value)
+function Ibw = add_boundary_padding(Ibw, value)
     size1 = size(Ibw, 1);
     size2 = size(Ibw, 2);
 

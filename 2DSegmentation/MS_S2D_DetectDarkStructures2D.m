@@ -17,16 +17,16 @@ function Ibwd = MS_S2D_DetectDarkStructures2D(inputName,fracBlack,varargin)
 
         compiled_code = 0;
         if isnumeric(fracBlack)     % original Matlab code
-            options.fracBlack = p.Results.fracBlack;
-            options.verbose   = p.Results.verbose;
-            options.dispOn    = p.Results.dispOn;
-            options.dispOn2   = p.Results.dispOn2;
-            options.closeAll  = p.Results.closeAll;
-            options.nx        = p.Results.nx;
-            options.ny        = p.Results.ny;
-            options.ix        = p.Results.ix;
-            options.iy        = p.Results.iy;
-            options.outName   = p.Results.outName;
+            options.fracBlack =         p.Results.fracBlack;
+            options.verbose   = logical(p.Results.verbose);
+            options.dispOn    = logical(p.Results.dispOn);
+            options.dispOn2   = logical(p.Results.dispOn2);
+            options.closeAll  = logical(p.Results.closeAll);
+            options.nx        =   int32(p.Results.nx);
+            options.ny        =   int32(p.Results.ny);
+            options.ix        =   int32(p.Results.ix);
+            options.iy        =   int32(p.Results.iy);
+            options.outName   =         p.Results.outName;
         else
             compiled_code     = 1;    % compiled code
             options.fracBlack =       str2double(p.Results.fracBlack);
@@ -46,7 +46,7 @@ function Ibwd = MS_S2D_DetectDarkStructures2D(inputName,fracBlack,varargin)
     end
 
     disp(['In MS_S2D_DetectDarkStructures2D: options.dispOn2=' num2str(options.dispOn2)]); 
-    frac_black = 0.5;
+    frac_black = 0.58;
     if options.fracBlack > 0
         frac_black = options.fracBlack;
     end
@@ -88,7 +88,7 @@ function Ibwd = MS_S2D_DetectDarkStructures2D(inputName,fracBlack,varargin)
     threshold = MS_S2D_GetThresholdIntensity(Igr, options.verbose, frac_black, 1001);
     Ibw = im2bw(Igr, threshold);
     Ibw = bwareaopen(Ibw,20);
-    Ibw  = adjust_edges(Ibw, 1);
+    Ibw  = add_boundary_padding(Ibw, 1);
     % Ibw  = imfill(Ibw, 'holes');
     if options.verbose
         disp(['final threshold_intensity=' num2str(threshold)]);
@@ -108,7 +108,6 @@ function Ibwd = MS_S2D_DetectDarkStructures2D(inputName,fracBlack,varargin)
     % Handling complement
     Ibwc = imcomplement(Ibw);
     Ibwc = bwareaopen(Ibwc,200);
-    %Ibwc = adjust_edges(Ibwc, 0);
     Ibwc = imcomplement(Ibwc);
     %Ibwc = imfill(Ibwc, 'holes');
     if options.dispOn
@@ -139,7 +138,7 @@ function Ibwd = MS_S2D_DetectDarkStructures2D(inputName,fracBlack,varargin)
     Ibwcdc = imfill(Ibwcdc, 'holes');
     Ibwcdc = imdilate(Ibwcdc, strel('disk', 2));
     Ibwcdc = imfill(Ibwcdc, 'holes');
-    Ibwd   = adjust_edges(Ibwcdc, 0);
+    Ibwd   = add_boundary_padding(Ibwcdc, 0);
     if options.dispOn
         figure(5)
         imshow(Ibwd), title('Final (dilated, inversed, filled and eroded) black-white image (Ibwd)')
@@ -161,16 +160,14 @@ function Ibwd = MS_S2D_DetectDarkStructures2D(inputName,fracBlack,varargin)
         L = generate_labels_matrix(Ibwd, options.verbose);
 
         % Color components
-        if options.dispOn
-            Lrgb = label2rgb(L, 'jet', 'w', 'shuffle');
-            figure
-            imshow(Lrgb)
-            title('Colored watershed label matrix (Lrgb)')
-            drawnow;
-            waitforbuttonpress;
-            if options.closeAll
-                close all;
-            end
+        Lrgb = label2rgb(L, 'jet', 'w', 'shuffle');
+        figure
+        imshow(Lrgb)
+        title('Colored watershed label matrix (Lrgb)')
+        drawnow;
+        waitforbuttonpress;
+        if options.closeAll
+            close all;
         end
     end
 
@@ -178,7 +175,7 @@ function Ibwd = MS_S2D_DetectDarkStructures2D(inputName,fracBlack,varargin)
 
 % Add zero padding at the adges,
 % to ensure thgat that entire image != one BW component
-function Ibw = adjust_edges(Ibw, value)
+function Ibw = add_boundary_padding(Ibw, value)
     size1 = size(Ibw, 1);
     size2 = size(Ibw, 2);
 
