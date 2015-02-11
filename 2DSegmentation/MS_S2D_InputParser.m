@@ -4,16 +4,18 @@
 
 classdef MS_S2D_InputParser < inputParser
     properties
-        defaultFracBlack = 0.;
         defaultVerbose   = 0;
         defaultDispOn    = 0;
         defaultDispOn2   = 0;
         defaultCloseAll  = 1;
         defaultNumTilesX = 1;
         defaultNumTilesY = 1;
-        defaultTileX     = 1;
-        defaultTileY     = 1;
-        defaultOutputName= '';
+        defaultTileX     = 0;
+        defaultTileY     = 0;
+        defaultMaxSize   = Inf; 
+        defaultOutBW     = ''; % name for output black/white image file
+        defaultOutSeg    = ''; % name for output segmentation file
+        defaultOutRGB    = ''; % name for output colored labels file
     end
 
     methods
@@ -45,6 +47,7 @@ classdef MS_S2D_InputParser < inputParser
                 obj.defaultNumTilesY = num2str(obj.defaultNumTilesY);
                 obj.defaultTileX     = num2str(obj.defaultTileX);        
                 obj.defaultTileY     = num2str(obj.defaultTileY);        
+                obj.defaultMaxSize   = num2str(obj.defaultMaxSize);
             end
 
             % Optional parameters
@@ -56,7 +59,10 @@ classdef MS_S2D_InputParser < inputParser
             obj.addParamValue('ny',      obj.defaultNumTilesY);
             obj.addParamValue('ix',      obj.defaultTileX);          
             obj.addParamValue('iy',      obj.defaultTileY);
-            obj.addParamValue('outName', obj.defaultOutputName);
+            obj.addParamValue('maxSize', obj.defaultMaxSize);
+            obj.addParamValue('outBW',   obj.defaultOutBW')
+            obj.addParamValue('outSeg',  obj.defaultOutSeg);
+            obj.addParamValue('outRGB',  obj.defaultOutRGB);
             obj.KeepUnmatched = true;
 
             parse@inputParser(obj, fracBlack, varargin{:});

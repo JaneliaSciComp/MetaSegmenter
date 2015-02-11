@@ -3,36 +3,121 @@
 %
 
 %
-% Purpose: detect the location of "dark" structures, 
-% such as mitochondria, T-,E-bars, and glial cells 
-% Determine intensity threshold for conversion to black-white image
-% NOTE: imhist assumes that I is a grayscale image, with range of values [0, 1]
-% NOTE2: edges are computed incorrectly by Matlab's imhist function,
-%        so a custom function has been implemented for compuring the edges
+% Purpose: compute a threshold intensity for each region
+% and then a matrix of threshold intensities       
+% using a smooth interpolation between regions
+% (so that every pixel will get its own threshold)
+%        
 
-function threshold = MS_S2D_GetThresholdIntensity(Igr,verbose,varargin)
-frac_black = 0.5;
-num_edges  = 1001;
-if nargin == 0 || nargin > 4
-    output_usage_message();
-    return
-elseif nargin == 3
-    frac_black = varargin{1};
-elseif nargin == 4
-    frac_black = varargin{1};
-    num_edges  = varargin{2};
-end
-N     = imhist(Igr,num_edges);      % counts
-edges = compute_edges(num_edges); % using a custom function for edges
-Nsum  = sum(N);
-if verbose
-    disp(['numel(N)=' num2str(numel(N)) ' Nsum=' num2str(Nsum) ...
-          ' numel(Igr)=' num2str(numel(Igr)) ' numel(edges)=' num2str(numel(edges))]);
-end
-cum_hist = get_cumulative_histogram(N, Nsum);
+function M_thr = MS_S2D_GetThresholdIntensity(Igr,fracBlack, subsections, options)
 
-% Black-white image
-threshold = get_threshold_intensity(cum_hist, frac_black, edges, verbose);
+    % Handle inputs
+    num_edges  = 1001;
+    disp(['In MS_S2D_GetThresholdIntensity: fracBlack=' num2str(fracBlack)]);
+
+    % Compute threshold intrensities for different regions
+    nx = int32(options.nx);
+    ny = int32(options.ny);
+    thresholds_reg = zeros(ny, nx);
+    y_center = zeros(1, ny);
+    x_center = zeros(1, nx);
+    for k=1:numel(subsections)
+        iy = 1 + floor(double(k-1)/double(nx));
+        ix = k - nx*(iy -1);
+        y_center(iy) = round(mean(subsections(k).ypixels));
+        x_center(ix) = round(mean(subsections(k).xpixels));
+        Igr_reg = Igr(subsections(k).ypixels,subsections(k).xpixels,1);
+        thresholds_reg(iy, ix) = get_threshold_for_one_region(Igr_reg,...  
+                                          options.verbose,fracBlack,num_edges);
+    end
+    thresholds_reg
+
+    % Compute a matrix of threshold intrensities by a smooth interpolation
+    size1 = size(Igr,1);
+    size2 = size(Igr,2);
+    M_thr = zeros(size(Igr));
+    
+    M_thr(1:y_center(1)     ,1:x_center(1)     ) = thresholds_reg(1 ,1 );
+    M_thr(y_center(ny):size1,1:x_center(1)     ) = thresholds_reg(ny,1 );
+    M_thr(1:y_center(1)     ,x_center(nx):size2) = thresholds_reg(1 ,nx);
+    M_thr(y_center(ny):size1,x_center(nx):size2) = thresholds_reg(ny,nx);
+
+    if ny > 1
+        % Linear interpolation
+        for i=(y_center(1)+1):(y_center(ny)-1)
+            iy =  max(find(y_center < i));
+            for j=1:x_center(1)       
+                M_thr(i,j) = thresholds_reg(iy  ,1)  ...
+                           +(thresholds_reg(iy+1,1)-thresholds_reg(iy,1))...
+                           *double(i             -y_center(iy)) ...
+                           /double(y_center(iy+1)-y_center(iy));
+            end
+            for j=x_center(nx):size2
+                M_thr(i,j) = thresholds_reg(iy  ,nx)  ...
+                           +(thresholds_reg(iy+1,nx)-thresholds_reg(iy,nx))...
+                           *double(i             -y_center(iy)) ...
+                           /double(y_center(iy+1)-y_center(iy));
+            end
+        end
+    end
+    if nx > 1
+        % Linear interpolation
+        for j=(x_center(1)+1):(x_center(nx)-1)
+            jx = max(find(x_center < j));
+            for i=1:y_center(1)  
+                M_thr(i,j) = thresholds_reg(1,jx  )  ...
+                           +(thresholds_reg(1,jx+1)-thresholds_reg(1,jx))...
+                           *double(j             -x_center(jx)) ...
+                           /double(x_center(jx+1)-x_center(jx));
+            end
+            for i=y_center(ny):size1
+                M_thr(i,j) = thresholds_reg(ny,jx  )  ...
+                           +(thresholds_reg(ny,jx+1)-thresholds_reg(ny,jx))...
+                           *double(j             -x_center(jx)) ...
+                           /double(x_center(jx+1)-x_center(jx));
+            end
+        end
+    end
+    if nx > 1 && ny > 1
+        % Smooth nonlinear interpolation
+        for i=(y_center(1)+1):(y_center(ny)-1)
+            iy = max(find(y_center < i));
+            for j=(x_center(1)+1):(x_center(nx)-1)
+                jx = max(find(x_center < j));
+                if     i==y_center(iy) && j==x_center(jx)
+                    M_thr(i,j) = thresholds_reg(iy,jx);
+                elseif i==y_center(iy+1) && j==x_center(jx)
+                    M_thr(i,j) = thresholds_reg(iy+1,jx);
+                elseif i==y_center(iy) && j==x_center(jx+1)
+                    M_thr(i,j) = thresholds_reg(iy,jx+1);
+                elseif i==y_center(iy+1) && j==x_center(jx+1)
+                    M_thr(i,j) = thresholds_reg(iy+1,jx+1);
+                else
+                    % Assign a weighted mean if thresholds at adjacent centers,
+                    % where the weights are the reciprocal distances
+                    w = zeros(1,4);
+                    w(1) = 1./sqrt(double(i-y_center(iy  ))^2+double(j-x_center(jx  ))^2);
+                    w(2) = 1./sqrt(double(i-y_center(iy+1))^2+double(j-x_center(jx  ))^2);
+                    w(3) = 1./sqrt(double(i-y_center(iy  ))^2+double(j-x_center(jx+1))^2);
+                    w(4) = 1./sqrt(double(i-y_center(iy+1))^2+double(j-x_center(jx+1))^2);
+                    thr = [thresholds_reg(iy,jx)   thresholds_reg(iy+1,jx) ...
+                           thresholds_reg(iy,jx+1) thresholds_reg(iy+1,jx+1)];
+                    M_thr(i,j) = dot(w,thr)/sum(w);
+                end
+            end
+        end
+    end
+
+% -- --------------------------------------------------------------------------
+
+function threshold = get_threshold_for_one_region(Igr,verbose,fracBlack, num_edges);
+    N     = imhist(Igr,num_edges);      % counts
+    edges = compute_edges(num_edges); % using a custom function for edges
+    Nsum  = sum(N);
+    cum_hist = get_cumulative_histogram(N, Nsum);
+
+    % Black-white image
+    threshold = get_threshold_intensity(cum_hist, fracBlack, edges, verbose);
 
 % -----------------------------------------------------------------------------
 
@@ -55,17 +140,17 @@ function cum_hist = get_cumulative_histogram(N, Nsum)
 
 % -----------------------------------------------------------------------------
 
-function threshold_intensity = get_threshold_intensity(cum_hist, frac_black,...
+function threshold_intensity = get_threshold_intensity(cum_hist, fracBlack,...
                                                        edges, verbose)
     threshold_intensity = 0;
     num_bins = numel(cum_hist);
     i = 0;
     while i<= num_bins-1
         i = i + 1;
-        if cum_hist(i) >= frac_black
+        if cum_hist(i) >= fracBlack
             deltaI = double(edges(i) - edges(i-1));
             deltaH = cum_hist(i) - cum_hist(i-1);
-            threshold_intensity = edges(i-1) + deltaI*(frac_black - cum_hist(i-1))/deltaH;
+            threshold_intensity = edges(i-1) + deltaI*(fracBlack - cum_hist(i-1))/deltaH;
             if verbose > 0
                 disp(['edges(i)=' num2str(edges(i)) ' cum_hist(i)=' num2str(cum_hist(i))...
                       ' threshold_intensity=' num2str(threshold_intensity)]);
