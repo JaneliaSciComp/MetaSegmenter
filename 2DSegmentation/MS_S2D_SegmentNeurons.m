@@ -3,42 +3,45 @@
 %
 
 % Identify regions corresponding to neural cells
-function Ibwn = MS_S2D_SegmentNeurons(inputName,fracBlack,varargin)   
+function Ibwn = MS_S2D_SegmentNeurons(inputName,fracBlack,fracBlack2,varargin)   
     warning off;
-    clc;
     try
         p = MS_S2D_InputParser;              % call constructor
-        p.parse(fracBlack, varargin{:});
-        options = MS_S2D_ExtractOptions(p, fracBlack);
+        p.parse(fracBlack, fracBlack2, varargin{:});
+        options = MS_S2D_ExtractOptions(p, fracBlack, fracBlack2);
     catch
         output_usage_message();
         return
     end
 
-    disp(['In MS_S2D_SegmentNeurons: options.dispOn2=' num2str(options.dispOn2)]);
-    
     % Input image data  
     if strcmp(class(inputName),'char') && exist(inputName, 'file') == 2   % input is image file
         I = imread(inputName); 
     else
-        I = inputName;                 % input is image
+        I = inputName;        % input is image
     end
 
-    size(I)
+    imwrite(I, 'orig_image_MS_S2D_SegmentNeurons.png');
+
     if length(size(I) > 2)
         I = I(:,:,1);
     end
+    disp(['In MS_S2D_SegmentNeurons: size(I)=' num2str(size(I))]);
     Igr = mat2gray(I);
+    clear I;
+
     % Original image
+    imwrite(Igr, 'Igr_MS_S2D_SegmentNeurons.png');
     if options.dispOn
         MS_S2D_ShowImage(Igr, 'Original image (Igr)', options);
     end
 
-    im_size = size(I);
+    im_size = size(Igr);
     Ibwn = zeros(im_size(1),im_size(2));
     subsections = MS_S2D_DivideImageIntoSubsections(im_size, options);
     M_thr = MS_S2D_GetThresholdIntensity(Igr, fracBlack, subsections, options);           
     Ibwn = segment_neurons(Igr, M_thr, options);
+    imwrite(Ibwn, 'Ibwn_MS_S2D_SegmentNeurons.tiff');
     Ibwn = MS_S2D_AddBoundaryPadding(Ibwn, 0);
 
     % Optionally output BW file
@@ -73,10 +76,15 @@ function Ibwn = segment_neurons(Igr, M_thr, options)
     % NOTE: imhist assumes that I is a grayscale image, with range of values [0, 1]
     % NOTE2: edges are computed incorrectly by Matlab's imhist function,
     %        so a custom function has been implemented for compuring the edges
-    Ibw = im2bw(Igr, 1);
-    mean(mean(M_thr))
+    %
+    Ibw = im2bw(Igr, 0.5);                 % all values are == logical(0)
+    imwrite(Igr, 'Igr1_MS_S2D_SegmentNeurons.png');
+    imwrite(Ibw, 'Ibw_MS_S2D_SegmentNeurons.tiff');
     Ibw(Igr > M_thr) = logical(1);
+    clear Igr;
+
     Ibw = bwareaopen(Ibw,20);
+    imwrite(Ibw, 'Ibw1_MS_S2D_SegmentNeurons.tiff');
     if options.dispOn
         MS_S2D_ShowImage(Ibw, 'Black-white image (Ibw)', options);
     end
@@ -84,7 +92,12 @@ function Ibwn = segment_neurons(Igr, M_thr, options)
     % Fill holes and open gaps
     Ibw  = MS_S2D_AddBoundaryPadding(Ibw, 0);
     Ibwf = imfill(Ibw, 'holes');
+    clear Ibw;
+
+    imwrite(Ibwf, 'Ibwf_MS_S2D_SegmentNeurons.tiff');
     Ibwn = bwareaopen(Ibwf,20);
+    clear Ibwf;
+
 %   Ibwn = MS_S2D_AddBoundaryPadding(Ibwn, 0);
     if options.dispOn
         MS_S2D_ShowImage(Ibwn, 'Black-white image (Ibwn)', options);

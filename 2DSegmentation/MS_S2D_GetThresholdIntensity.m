@@ -13,34 +13,33 @@ function M_thr = MS_S2D_GetThresholdIntensity(Igr,fracBlack, subsections, option
 
     % Handle inputs
     num_edges  = 1001;
-    disp(['In MS_S2D_GetThresholdIntensity: fracBlack=' num2str(fracBlack)]);
 
     % Compute threshold intrensities for different regions
     nx = int32(options.nx);
     ny = int32(options.ny);
+    
     thresholds_reg = zeros(ny, nx);
-    y_center = zeros(1, ny);
-    x_center = zeros(1, nx);
+    y_center = int32(zeros(1, ny));
+    x_center = int32(zeros(1, nx));
     for k=1:numel(subsections)
         iy = 1 + floor(double(k-1)/double(nx));
         ix = k - nx*(iy -1);
-        y_center(iy) = round(mean(subsections(k).ypixels));
-        x_center(ix) = round(mean(subsections(k).xpixels));
+        y_center(iy) = int32(round(mean(subsections(k).ypixels)));
+        x_center(ix) = int32(round(mean(subsections(k).xpixels)));
         Igr_reg = Igr(subsections(k).ypixels,subsections(k).xpixels,1);
         thresholds_reg(iy, ix) = get_threshold_for_one_region(Igr_reg,...  
                                           options.verbose,fracBlack,num_edges);
     end
-    thresholds_reg
 
     % Compute a matrix of threshold intrensities by a smooth interpolation
-    size1 = size(Igr,1);
-    size2 = size(Igr,2);
+    size1 = int32(size(Igr,1));
+    size2 = int32(size(Igr,2));
     M_thr = zeros(size(Igr));
-    
-    M_thr(1:y_center(1)     ,1:x_center(1)     ) = thresholds_reg(1 ,1 );
-    M_thr(y_center(ny):size1,1:x_center(1)     ) = thresholds_reg(ny,1 );
-    M_thr(1:y_center(1)     ,x_center(nx):size2) = thresholds_reg(1 ,nx);
-    M_thr(y_center(ny):size1,x_center(nx):size2) = thresholds_reg(ny,nx);
+   
+    M_thr(1:int32(y_center(1))     ,1:int32(x_center(1))     ) = thresholds_reg(1 ,       1 );
+    M_thr(int32(y_center(ny)):size1,1:int32(x_center(1))     ) = thresholds_reg(int32(ny),1 );
+    M_thr(1:int32(y_center(1))     ,int32(x_center(nx)):size2) = thresholds_reg(1 ,       int32(nx));
+    M_thr(int32(y_center(ny)):size1,int32(x_center(nx)):size2) = thresholds_reg(int32(ny),int32(nx));
 
     if ny > 1
         % Linear interpolation
@@ -113,8 +112,8 @@ function M_thr = MS_S2D_GetThresholdIntensity(Igr,fracBlack, subsections, option
 function threshold = get_threshold_for_one_region(Igr,verbose,fracBlack, num_edges);
     N     = imhist(Igr,num_edges);      % counts
     edges = compute_edges(num_edges); % using a custom function for edges
-    Nsum  = sum(N);
-    cum_hist = get_cumulative_histogram(N, Nsum);
+    Nsum  = sum(N');
+    cum_hist = get_cumulative_histogram(N', Nsum);
 
     % Black-white image
     threshold = get_threshold_intensity(cum_hist, fracBlack, edges, verbose);
@@ -128,7 +127,7 @@ function output_usage_message()
 % -----------------------------------------------------------------------------
 
 function cum_hist = get_cumulative_histogram(N, Nsum)
-    cum_hist = zeros(numel(N));
+    cum_hist = zeros(1,numel(N));
     my_sum = 0;
     for i=2:numel(N)
         my_sum = my_sum + N(i-1);
@@ -147,14 +146,12 @@ function threshold_intensity = get_threshold_intensity(cum_hist, fracBlack,...
     i = 0;
     while i<= num_bins-1
         i = i + 1;
-        if cum_hist(i) >= fracBlack
+%       disp(['i=' num2str(i) ' edges(i)=' num2str(edges(i)) ...
+%             ' cum_hist(i)=' num2str(cum_hist(i)) ' fracBlack=' num2str(fracBlack)]);
+        if double(cum_hist(i)) >= double(fracBlack)
             deltaI = double(edges(i) - edges(i-1));
             deltaH = cum_hist(i) - cum_hist(i-1);
             threshold_intensity = edges(i-1) + deltaI*(fracBlack - cum_hist(i-1))/deltaH;
-            if verbose > 0
-                disp(['edges(i)=' num2str(edges(i)) ' cum_hist(i)=' num2str(cum_hist(i))...
-                      ' threshold_intensity=' num2str(threshold_intensity)]);
-            end
             break
         end
     end

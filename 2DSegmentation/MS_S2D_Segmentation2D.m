@@ -3,16 +3,25 @@
 %
 % Purpose: combine regions corresponding to neurons and dark structures
 % in order to produce a final segmentation
-function L = MS_S2D_Segmentation2D(inputName,fracBlack,fracBlack2,varargin)   
+function [] = MS_S2D_Segmentation2D(inputName,fracBlack,fracBlack2,varargin)   
     debug = 0;
-    try
-        p = MS_S2D_InputParser;              % call constructor
-        p.parse(fracBlack, varargin{:});
-        options = MS_S2D_ExtractOptions(p, fracBlack);
-    catch
+    if nargin < 3
         output_usage_message();
         return
     end
+
+%   try
+        p = MS_S2D_InputParser;              % call constructor
+        p.parse(fracBlack,fracBlack2,varargin{:});
+        options = MS_S2D_ExtractOptions(p, fracBlack, fracBlack2);
+%   catch
+%       output_usage_message();
+%       return
+%   end
+
+    fracBlack  = options.fracBlack;
+    fracBlack2 = options.fracBlack2;
+
     options.debug = debug;
 
     % Input image data  
@@ -21,18 +30,20 @@ function L = MS_S2D_Segmentation2D(inputName,fracBlack,fracBlack2,varargin)
     else
         I = inputName;                 % input is image
     end
+    
     if length(size(I)) > 2
         I = squeeze(I(:,:,1));
     end
-    I = removeconstantrows(I);
-    I = removeconstantrows(I')';
-
+    
     if (options.dispOn || options.dispOn2 || options.debug)
         MS_S2D_ShowImage(I(:,:), 'Original image (I)', options);
     end
 
+    imwrite(I, 'orig_image_MS_S2D_Segmentation2D.png');
+
     Ibwf = segment_image(I, fracBlack, fracBlack2, options);
     Ibwf = MS_S2D_AddBoundaryPadding(Ibwf, 0);
+    
      % Optionally output BW file
     if length(options.outBW) > 0
         imwrite(Ibwf, options.outBW);
@@ -41,11 +52,13 @@ function L = MS_S2D_Segmentation2D(inputName,fracBlack,fracBlack2,varargin)
     L = MS_S2D_GenerateLabelsMatrix(Ibwf, options.verbose);
     
     if (options.dispOn || options.dispOn2 || options.debug ...
-                       || length(options.outputRGB) > 0)
+                       || length(options.outRGB) > 0);          
         Lrgb = label2rgb(L, 'jet', 'w', 'shuffle');
-        MS_S2D_ShowImage(Lrgb, 'Final segmentation colored labels (Lrgb)', options);
+        if (options.dispOn || options.dispOn2 || options.debug)
+            MS_S2D_ShowImage(Lrgb, 'Final segmentation colored labels (Lrgb)', options);
+        end
         if length(options.outRGB) > 0
-            imwrite(Lrgb, options.outputRGB);
+            imwrite(Lrgb, options.outRGB);
         end
     end
 
@@ -59,22 +72,39 @@ function L = MS_S2D_Segmentation2D(inputName,fracBlack,fracBlack2,varargin)
 function Ibwf = segment_image(I, fracBlack, fracBlack2, options)
     % Black-white images
     %
-    Ibwn = MS_S2D_SegmentNeurons(        I, fracBlack, ...
-                                 'nx', options.nx, 'ny', options.ny,...
-                                 'ix', options.ix, 'iy', options.iy,...
-                                 'maxSize', options.maxSize, ...
-                                 'verbose', options.verbose,...
-                                 'dispOn2', 1,...
-                                 'closeAll',options.closeAll);
-    Ibwn = MS_S2D_AddBoundaryPadding(Ibwn, 0);
+    if options.compiled_code
+        Ibwn = MS_S2D_SegmentNeurons(I, ...
+            fracBlack, fracBlack2,...
+            'nx', options.nx, 'ny', options.ny,...
+            'ix', options.ix, 'iy', options.iy,...
+            'maxSize', options.maxSize, ...
+            'verbose', options.verbose);
+        Ibwd = MS_S2D_DetectDarkStructures2D(I, ...
+            fracBlack, fracBlack2,...
+            'nx', options.nx, 'ny', options.ny,...
+            'ix', options.ix, 'iy', options.iy,...
+            'maxSize', options.maxSize, ...
+            'verbose', options.verbose);
+    else 
+        Ibwn = MS_S2D_SegmentNeurons(I, fracBlack, fracBlack2,...
+            'nx', options.nx, 'ny', options.ny,...
+            'ix', options.ix, 'iy', options.iy,...
+            'maxSize', options.maxSize, ...
+            'verbose', options.verbose,...
+            'dispOn2', options.dispOn2,...
+            'closeAll',options.closeAll);
+        Ibwd = MS_S2D_DetectDarkStructures2D(I, fracBlack, fracBlack2,...
+            'nx', options.nx, 'ny', options.ny,...
+            'ix', options.ix, 'iy', options.iy,...
+            'maxSize', options.maxSize, ...
+            'verbose', options.verbose,...
+            'dispOn2', options.dispOn2,...
+            'closeAll',options.closeAll);
+    end
+    clear I;
+
 %   Ibwn = imfill(Ibwn, 'holes'); % instead, better to make a continuous, piecewise linear threshold
-    Ibwd = MS_S2D_DetectDarkStructures2D(I, fracBlack2,...
-                                 'nx', options.nx, 'ny', options.ny,...
-                                 'ix', options.ix, 'iy', options.iy,...
-                                 'maxSize', options.maxSize, ...
-                                 'verbose', options.verbose,...
-                                 'dispOn2', 1,...
-                                 'closeAll',options.closeAll);
+    Ibwn = MS_S2D_AddBoundaryPadding(Ibwn, 0);
     Ibwd = MS_S2D_AddBoundaryPadding(Ibwd, 0);
     if options.debug
         MS_S2D_ShowImage(Ibwn, 'Initially detectred neural cells (Ibwn)', options);
@@ -92,6 +122,8 @@ function Ibwf = segment_image(I, fracBlack, fracBlack2, options)
     % What we are looking for, should be holes in the remaing BW components
     Ibwn2 = imfill(Ibwn1, 'holes');
     Ibwd1 = Ibwn2 - Ibwn1;
+    clear Ibwn1;
+    clear Ibwn2;
     Ibwd11 = bwareaopen(Ibwd1,200);
 
     % Identify the dark strutures each of which is ALMOST entirely contained
@@ -100,6 +132,8 @@ function Ibwf = segment_image(I, fracBlack, fracBlack2, options)
     Ibwn1 = (Ibwnd | Ibwde) - Ibwde;
     Ibwn2 = imfill(Ibwn1, 'holes');
     Ibwd12 = Ibwn2 - Ibwn1;
+    clear Ibwn1;
+    clear Ibwn2;
     Ibwd12  = bwareaopen(Ibwd12,200);
     Ibwd1f = Ibwd11 | Ibwd12;
     if options.debug 
@@ -116,8 +150,10 @@ function Ibwf = segment_image(I, fracBlack, fracBlack2, options)
     Ibwnd = imdilate(Ibwn, strel('disk', 2));
     Ibwd1 = Ibwd - Ibwd1f;
     Ibwd2 = (Ibwnd | Ibwd1) - Ibwnd;
-    Ibwd2 = bwareaopen(Ibwd2,400);
+    clear Ibwnd;
+    Ibwd2 = bwareaopen(Ibwd2, 400);
     Ibwd2f = imfill(Ibwd2, 'holes');
+    clear Ibwd2;
 %   Ibwd1 = imclose(Ibwd1, strel('disk', 2));
 
     if options.debug
@@ -137,6 +173,7 @@ function Ibwf = segment_image(I, fracBlack, fracBlack2, options)
     Ibwf = MS_S2D_AddBoundaryPadding(Ibwf, 0);
 
     Bd1f = bwboundaries(Ibwd1f, 4);
+    clear Ibwd1f;
     for i=1:numel(Bd1f)  % i = component id
         % Boundary pixels
         bp1 = Bd1f{i};
@@ -145,7 +182,9 @@ function Ibwf = segment_image(I, fracBlack, fracBlack2, options)
             Ibwf(bp1(j,1),bp1(j,2)) = logical(0);
         end
     end
+    clear Bd1f;
     Bd2f = bwboundaries(Ibwd2f, 4);
+    clear Ibwd2f;
     for i=1:numel(Bd2f)
         bp2 = Bd2f{i};
         Q2  = size(bp2,1);
@@ -153,6 +192,7 @@ function Ibwf = segment_image(I, fracBlack, fracBlack2, options)
             Ibwf(bp2(j,1), bp2(j,2)) = logical(0);
         end
     end
+    clear Bd2f;
 %   Ibwf = imfill(Ibwf, 'holes'); % is it possible to fill only those holes which do not contain childs?
     return
 

@@ -22,16 +22,18 @@ classdef MS_S2D_InputParser < inputParser
         function obj = MS_S2D_InputParser % class constructor 
             obj  = obj@inputParser;     
         end
-        function parse(obj, fracBlack, varargin)
-             compiled_code = 0;
+        function parse(obj, fracBlack, fracBlack2, varargin)
+            compiled_code = 0;
             % If compiled code
             if ~isnan(str2double(fracBlack))
                 compiled_code = 1;
-                fracBlack = str2double(fracBlack);
+                fracBlack  = str2double(fracBlack);
+                fracBlack2 = str2double(fracBlack2);
             end
 
             % Required inputs
-            obj.addRequired('fracBlack', @isnumeric);
+            obj.addRequired('fracBlack',  @isnumeric);
+            obj.addRequired('fracBlack2', @isnumeric);
             % If varargin{1} is a string convertable to number (i.e. this is compiled code)
             if size(varargin,1) > 0 && ~isnan(str2double(varargin{1}))
                 varargin{1} = int32(str2double(varargin{1}));
@@ -64,8 +66,7 @@ classdef MS_S2D_InputParser < inputParser
             obj.addParamValue('outSeg',  obj.defaultOutSeg);
             obj.addParamValue('outRGB',  obj.defaultOutRGB);
             obj.KeepUnmatched = true;
-
-            parse@inputParser(obj, fracBlack, varargin{:});
+            parse@inputParser(obj, fracBlack, fracBlack2, varargin{:});
         end
     end
 end

@@ -3,7 +3,9 @@
 # Copyright (C) 2015 by Howard Hughes Medical Institute.
 #
 
-import Image
+import re
+import matplotlib
+from PIL import Image
 import h5py
 import numpy
 import sys, os, optparse
@@ -13,10 +15,11 @@ from scipy import misc
 
 def command_line_parser(parser):
     parser.add_option("-a", "--alpha", dest="alpha", help="smoothing coefficient",  metavar="alpha", default="0.01")
-    parser.add_option("-i", "--image_dir",dest="image_dir",help="optional when type=labels')", metavar="imd", default="")
+    parser.add_option("-m", "--match_str", dest="match_string", help="match str. for input file names", metavar="mstr",default="")
     parser.add_option("-o", "--output_name", dest="output_name", help="name of the output HDF5 file", metavar="out", default="output.h5")
     parser.add_option("-t", "--type", dest="output_type", help="output type (='data','labels' or 'mask')", metavar="ot", default="")
     parser.add_option("-v", "--verbose",action="store_true",dest="verbose",help="increase verbosity of output", default=False)
+    parser.add_option("-u", "--unmatch_str", dest="unmatch_string", help="unmatch str. for input file names", metavar="unmstr",default="")
     return parser
 
 # ----------------------------------------------------------------------
@@ -154,13 +157,23 @@ def populate_stack(nd_stack, input_dir, input_files, output_type, imdir):
     i = 0
     for ifile in input_files:
         i = i + 1
-        ifile_path = input_dir + "/" + ifile
-        im = misc.imread(ifile_path)
+        ifile_path = os.path.join(input_dir, ifile)
+        print "In populate_stack: i=", i, " ifile_path=", ifile_path
+        try:
+            print "Trying Image.open ..."
+            im = Image.open(ifile_path)
+        except:
+            try:  
+                print "Trying misc.imread ..."
+                im = misc.imread(ifile_path)
+            except:
+                print "Trying matplotlib.image.imread ..."
+                matplotlib.image.imread(ifile_path)
 #       if output_type == "data" and len(imdir) == 0:
 #           im = normalize_image(im)
 #       elif output_type == "data" and len(imdir) > 0:
 #           im = scale_image(im)
-        print "Updating stack with ", ifile, " (image shape=", im.shape, ") ..."
+        print "Updating stack with ", ifile, " (i=", i, ")..."
         nd_stack = update_nd_stack(nd_stack, im, i-1, output_type)
     return nd_stack
 
@@ -174,9 +187,16 @@ def update_nd_stack(nd_stack, im, k, output_type):
     stack_shape = nd_stack.shape
 #   print "stack_shape=", stack_shape, " im.shape=", im.shape, " k=", k
     if output_type == "data":
-        for j in range(0, stack_shape[1]):
+        print "nd_stack.shape=", nd_stack.shape, " im.shape=", im.size 
+        im.shape = im.size
+        im1 = numpy.array(im.getdata(), numpy.uint8).reshape(im.size[1], im.size[0])
+        print "im.shape=", im1.shape
+        print "type(nd_stack)=", type(nd_stack), " type(im)=", type(im1) 
+        nd_stack[:,:,k] = im1
+#       for j in range(0, stack_shape[1]):
 #           print "j=", j, " im[:,j].shape=", im[:,j].shape, " nd_stack[:,j,k].shape=", nd_stack[:,j,k].shape
-            nd_stack[:,j,k] = im[:,j]
+#           nd_stack[:,j,k] = im[:,j]
+#           nd_stack[:,:,k] = numpy.array(im)
     else:
         if len(im.shape) == 3 and output_type == "labels":
             for i in range(0, stack_shape[0]):
@@ -197,9 +217,10 @@ if __name__ == "__main__":
     (options, args) = parser.parse_args()
 
     # parse input
-#   print "len(sys.argv)=", len(sys.argv), "sys.argv=", sys.argv
+    print "len(sys.argv)=", len(sys.argv), "sys.argv=", sys.argv, " len(args)=", len(args)
+    print "args=", args
     if len(args) == 1:
-        input_dir    = args[0]
+        input_dir = args[0]
     else:
         sys.exit("\nusage: MS_UT_CreateH5Stack.py input_dir -t type [ other options ] \n")
 
@@ -209,10 +230,32 @@ if __name__ == "__main__":
         sys.exit("\nThe allowed input types are 'data', 'labels' and 'mask'\n")
 
     h5_file_name = options.output_name
-    input_files = os.listdir(input_dir)
+    print "input_dir=", input_dir, " match_string=", options.match_string, " unmatch_string=", options.unmatch_string
+    input_files = []
+    for file in os.listdir(input_dir):
+        if re.search(options.match_string, file) and \
+                (len(options.unmatch_string) == 0 or not re.search(options.unmatch_string, file)):
+            input_files.append(file)
+    input_files = sorted(input_files)
+    print "sorted input_files=", input_files
+
     list_stack = []
-    first_file_path = input_dir + "/" + input_files[0]
-    image_shape = misc.imread(first_file_path).shape
+    print "Operning file ", os.path.join(input_dir, input_files[0]), " ... "
+    myfile = os.path.join(input_dir, input_files[0])
+    try:
+        # Using PIL
+        image_shape = Image.open(myfile).size
+    except:
+        try:
+            # Using scipy
+            image_shape = misc.imread(myfile).shape
+        except:
+            try:
+                # Using Matplotlib
+                image_shape = matplotlib.image.imread(myfile, format = 'png').shape
+            except:
+                print "Unable to read image file", myfile
+                sys.exit(2)
     nd_stack = create_default_stack(image_shape, len(input_files), options.output_type)
     nd_stack = populate_stack(nd_stack, input_dir, input_files, options.output_type,"")
         
@@ -222,10 +265,10 @@ if __name__ == "__main__":
             nd_stack = update_labels_connect(nd_stack)            
         else:
             print "options.input_dir=", options.image_dir
-            input_files = os.listdir(options.image_dir)
-            first_file_path = options.image_dir + "/" + input_files[0]
+            input_file_paths = sorted(os.listdir(options.image_dir))         
+            first_file_path  = input_file_paths[0]
             image_shape =  misc.imread(first_file_path).shape
-            image_stack = create_default_stack(image_shape, len(input_files), "data")
+            image_stack = create_default_stack(image_shape, len(input_file_paths), "data")
             image_files = os.listdir(options.image_dir)
             image_stack = populate_stack(image_stack, options.image_dir, image_files, "data", "imdir")
             mean_signal = numpy.mean(image_stack[nd_stack[:,:,:,0] > 0])
@@ -235,7 +278,7 @@ if __name__ == "__main__":
 
     # Transpose the array to  comply with Matlab
     nd_stack = numpy.transpose(nd_stack)
-    print "Final nd_stack.shape=", nd_stack.shape
+    print "Final nd_stack.shape=", nd_stack.shape, " h5_file_name=", h5_file_name 
     # NOTE: for reasons which I don't understand, the Numpy's shape of nd_stack
     #       turns out to be inverted relative to the Matlab's size of h5 stack 
     f  = h5py.File(h5_file_name, 'w')

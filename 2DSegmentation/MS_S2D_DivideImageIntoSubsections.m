@@ -14,6 +14,9 @@ function subsections = MS_S2D_DivideImageIntoSubsections(im_size, options)
     x_size = round(im_size(2)/nx_best);
 
     % Populate subsections structure with pixels
+    if options.verbose
+        disp(['im_size=' num2str(im_size)]);
+    end
     k = 0;
     for iy=1:ny_best
         if options.iy > 0 && iy ~= options.iy
@@ -31,8 +34,8 @@ function subsections = MS_S2D_DivideImageIntoSubsections(im_size, options)
             xmax = min(x_size* ix    , im_size(2));
             subsections(k).xpixels = [xmin:xmax];
             if options.verbose
-                disp(['k=', num2str(k) ' x_size=' num2str(xmax-xmin+1)  ...
-                                       ' y_size=' num2str(ymax-ymin+1)]);
+                disp(['subsection=', num2str(k) ' x_size=' num2str(xmax-xmin+1)  ...
+                                                ' y_size=' num2str(ymax-ymin+1)]);
             end
         end
     end

@@ -8,19 +8,17 @@
 % in a 2D intensity image  
 % 
 
-function Ibwd = MS_S2D_DetectDarkStructures2D(inputName,fracBlack,varargin)   
+function Ibwd = MS_S2D_DetectDarkStructures2D(inputName,fracBlack,fracBlack2,varargin)   
     warning off;
-    clc;
     try
         p = MS_S2D_InputParser;              % call constructor
-        p.parse(fracBlack, varargin{:});
-        options = MS_S2D_ExtractOptions(p, fracBlack);
+        p.parse(fracBlack, fracBlack2, varargin{:});
+        options = MS_S2D_ExtractOptions(p, fracBlack, fracBlack2);
     catch
         output_usage_message();
         return
     end
 
-    disp(['In MS_S2D_DetectDarkStructures2D: options.dispOn2=' num2str(options.dispOn2)]); 
     frac_black = 0.6;
     if options.fracBlack > 0
         frac_black = options.fracBlack;
@@ -32,6 +30,8 @@ function Ibwd = MS_S2D_DetectDarkStructures2D(inputName,fracBlack,varargin)
     else
         I = inputName;                 % input is image
     end
+
+    imwrite(I, 'orig_image_MS_S2D_DetectDarkStructures2D.png')
 
     % Original image
     if options.dispOn
@@ -45,6 +45,8 @@ function Ibwd = MS_S2D_DetectDarkStructures2D(inputName,fracBlack,varargin)
     Ibwd = zeros(im_size(1),im_size(2));
     subsections = MS_S2D_DivideImageIntoSubsections(im_size, options);
     Igr = mat2gray(I);
+    clear I;
+
     M_thr = MS_S2D_GetThresholdIntensity(Igr, fracBlack, subsections, options);      
     Ibwd = segment_dark_structures(Igr, M_thr, options);
     Ibwd = MS_S2D_AddBoundaryPadding(Ibwd, 0);
@@ -83,6 +85,8 @@ function Ibwd = segment_dark_structures(Igr, M_thr, options)
     %        so a custom function has been implemented for compuring the edges
     Ibw = im2bw(Igr, 1);
     Ibw(Igr > M_thr) = logical(1);
+    clear Igr;
+
     Ibw = bwareaopen(Ibw,20);
     Ibw = MS_S2D_AddBoundaryPadding(Ibw, 1);
     % Ibw  = imfill(Ibw, 'holes');
@@ -92,6 +96,7 @@ function Ibwd = segment_dark_structures(Igr, M_thr, options)
 
     % Handling complement
     Ibwc = imcomplement(Ibw);
+    clear Ibw;
     Ibwc = bwareaopen(Ibwc,200);
     Ibwc = imcomplement(Ibwc);
     if options.dispOn
@@ -100,17 +105,21 @@ function Ibwd = segment_dark_structures(Igr, M_thr, options)
 
     % Dilated BW image
     Ibwcd = imdilate(Ibwc, strel('disk', 2));
+    clear Ibwc;
     if options.dispOn
         MS_S2D_ShowImage(Ibwcd, 'Dilated, inversed, filled and eroded black-white image (Ibwd)', options);
     end
 
     % Inversed 
     Ibwcdc = imcomplement(Ibwcd);
+    clear Ibwcd;
     Ibwcdc = imerode(Ibwcdc, strel('disk', 2));
     Ibwcdc = bwareaopen(Ibwcdc,200);
     Ibwcdc = imfill(Ibwcdc, 'holes');
     Ibwcdc = imdilate(Ibwcdc, strel('disk', 2));
     Ibwd  = imfill(Ibwcdc, 'holes');
+    clear Ibwcdc;
+
 %   Ibwd   = MS_S2D_AddBoundaryPadding(Ibwd, 0);
     if options.dispOn
         MS_S2D_ShowImage(Ibwd, 'Final (dilated, inversed, filled and eroded) black-white image (Ibwd)', options);
