@@ -14,12 +14,15 @@ from scipy import misc
 # ----------------------------------------------------------------------
 
 def command_line_parser(parser):
-    parser.add_option("-a", "--alpha", dest="alpha", help="smoothing coefficient",  metavar="alpha", default="0.01")
-    parser.add_option("-m", "--match_str", dest="match_string", help="match str. for input file names", metavar="mstr",default="")
-    parser.add_option("-o", "--output_name", dest="output_name", help="name of the output HDF5 file", metavar="out", default="output.h5")
-    parser.add_option("-t", "--type", dest="output_type", help="output type (='data','labels' or 'mask')", metavar="ot", default="")
-    parser.add_option("-v", "--verbose",action="store_true",dest="verbose",help="increase verbosity of output", default=False)
-    parser.add_option("-u", "--unmatch_str", dest="unmatch_string", help="unmatch str. for input file names", metavar="unmstr",default="")
+    parser.add_option("-a","--alpha", dest="alpha", help="smoothing coefficient",  metavar="alpha", default="0.01")
+    parser.add_option("-c","--chunked",action="store_true",dest="chunked",help="each layer is chunk",metavar="chunked",default=False)
+    parser.add_option("-m","--match_str", dest="match_string",help="match str. for input file names", metavar="mstr",default="")
+    parser.add_option("-o","--output_name",dest="output_name",help="name of the output HDF5 file", metavar="out", default="output.h5")
+    parser.add_option("-t","--type", dest="output_type", help="output type (='data','labels' or 'mask')", metavar="ot", default="")
+    parser.add_option("-v","--verbose",action="store_true",dest="verbose",help="increase verbosity of output", default=False)
+    parser.add_option("-u","--unmatch_str",dest="unmatch_string",help="unmatch str. for input file names",metavar="unmstr",default="")
+    parser.add_option("-z", "--zmin",dest="zmin",help="min z-layer to be processed", metavar="zmin", default=0)
+    parser.add_option("-Z", "--zmax",dest="zmax",help="max z-layer to be processed", metavar="zmax", default=sys.maxint)
     return parser
 
 # ----------------------------------------------------------------------
@@ -152,11 +155,12 @@ def normalize_image(orig_image):
 
 # ----------------------------------------------------------------------
 
-def populate_stack(nd_stack, input_dir, input_files, output_type, imdir):
+def populate_stack(nd_stack, input_dir, input_files, output_type, imdir, options):
     print "...Populating stack for output_type=", output_type
     i = 0
     for ifile in input_files:
-        i = i + 1
+        if i < int(options.zmin) or i >= int(options.zmax):
+            continue
         ifile_path = os.path.join(input_dir, ifile)
         print "In populate_stack: i=", i, " ifile_path=", ifile_path
         try:
@@ -173,6 +177,7 @@ def populate_stack(nd_stack, input_dir, input_files, output_type, imdir):
 #           im = normalize_image(im)
 #       elif output_type == "data" and len(imdir) > 0:
 #           im = scale_image(im)
+        i = i + 1
         print "Updating stack with ", ifile, " (i=", i, ")..."
         nd_stack = update_nd_stack(nd_stack, im, i-1, output_type)
     return nd_stack
@@ -236,11 +241,14 @@ if __name__ == "__main__":
         if re.search(options.match_string, file) and \
                 (len(options.unmatch_string) == 0 or not re.search(options.unmatch_string, file)):
             input_files.append(file)
-    input_files = sorted(input_files)
+    sorted_input_files = sorted(input_files)
+    imin = max(0, int(options.zmin))
+    imax = min(len(input_files), int(options.zmax))
+    input_files = sorted_input_files[imin:imax]
     print "sorted input_files=", input_files
 
     list_stack = []
-    print "Operning file ", os.path.join(input_dir, input_files[0]), " ... "
+    print "Opening file ", os.path.join(input_dir, input_files[0]), " ... "
     myfile = os.path.join(input_dir, input_files[0])
     try:
         # Using PIL
@@ -256,8 +264,11 @@ if __name__ == "__main__":
             except:
                 print "Unable to read image file", myfile
                 sys.exit(2)
-    nd_stack = create_default_stack(image_shape, len(input_files), options.output_type)
-    nd_stack = populate_stack(nd_stack, input_dir, input_files, options.output_type,"")
+    num_images = min(len(input_files), int(options.zmax)-int(options.zmin))
+    nd_stack = create_default_stack(image_shape, num_images, options.output_type)
+    nd_stack = populate_stack(nd_stack, input_dir, input_files, options.output_type,"", options)
+    if options.chunked:
+        chunk_shape = (1, image_shape[0], image_shape[1])
         
 #   print "nd_stack.shape=", nd_stack.shape
     if options.output_type == "labels" and len(image_shape) > 2: # input folder contains labels, not images
@@ -268,9 +279,10 @@ if __name__ == "__main__":
             input_file_paths = sorted(os.listdir(options.image_dir))         
             first_file_path  = input_file_paths[0]
             image_shape =  misc.imread(first_file_path).shape
-            image_stack = create_default_stack(image_shape, len(input_file_paths), "data")
+            num_images = min(len(input_files), int(options.zmax)-int(options.zmin))
+            image_stack = create_default_stack(image_shape, num_images, "data")
             image_files = os.listdir(options.image_dir)
-            image_stack = populate_stack(image_stack, options.image_dir, image_files, "data", "imdir")
+            image_stack = populate_stack(image_stack, options.image_dir, image_files, "data", "imdir", options)
             mean_signal = numpy.mean(image_stack[nd_stack[:,:,:,0] > 0])
             print "mean_signal=", mean_signal
             print "alpha=", options.alpha
@@ -282,7 +294,12 @@ if __name__ == "__main__":
     # NOTE: for reasons which I don't understand, the Numpy's shape of nd_stack
     #       turns out to be inverted relative to the Matlab's size of h5 stack 
     f  = h5py.File(h5_file_name, 'w')
-    f.create_dataset('main', nd_stack.shape, data=nd_stack)    
+    if not options.chunked:
+        f.create_dataset('main', nd_stack.shape, data=nd_stack)    
+    else:
+        if options.verbose:
+            print "Chunk shape=", chunk_shape
+        f.create_dataset('chunked', nd_stack.shape, data=nd_stack, chunks=chunk_shape)              
 
 
 
