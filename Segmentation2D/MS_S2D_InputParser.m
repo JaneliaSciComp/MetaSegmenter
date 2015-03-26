@@ -7,6 +7,7 @@ classdef MS_S2D_InputParser < inputParser
         defaultVerbose   = 0;
         defaultDispOn    = 0;
         defaultDispOn2   = 0;
+        defaultPadding   = 0;
         defaultCloseAll  = 1;
         defaultNumTilesX = 1;
         defaultNumTilesY = 1;
@@ -45,6 +46,7 @@ classdef MS_S2D_InputParser < inputParser
                 obj.defaultDispOn    = num2str(obj.defaultDispOn);        
                 obj.defaultDispOn2   = num2str(obj.defaultDispOn2);
                 obj.defaultCloseAll  = num2str(obj.defaultCloseAll);
+                obj.defaultPadding   = num2str(obj.defaultPadding);
                 obj.defaultNumTilesX = num2str(obj.defaultNumTilesX);
                 obj.defaultNumTilesY = num2str(obj.defaultNumTilesY);
                 obj.defaultTileX     = num2str(obj.defaultTileX);        
@@ -57,6 +59,7 @@ classdef MS_S2D_InputParser < inputParser
             obj.addParamValue('dispOn',  obj.defaultDispOn); 
             obj.addParamValue('dispOn2', obj.defaultDispOn2); 
             obj.addParamValue('closeAll',obj.defaultCloseAll);
+            obj.addParamValue('padding', obj.defaultPadding);
             obj.addParamValue('nx',      obj.defaultNumTilesX);
             obj.addParamValue('ny',      obj.defaultNumTilesY);
             obj.addParamValue('ix',      obj.defaultTileX);          

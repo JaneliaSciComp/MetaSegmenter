@@ -36,7 +36,7 @@ def merge_command_line_parser(parser):
 
 def compile_code(options):
     print "\nCompiling MS_S2D_MergeImageFragments.m ..."
-    input_path = os.path.join(ms_home,"2DSegmentation", \
+    input_path = os.path.join(ms_home,"Segmentation2D", \
                               "MS_S2D_MergeImageFragments.m")
     command = "mcc -m -N -p signal -p optim -p stats -p shared -p images " +\
               " -R -singleCompThread " +\
