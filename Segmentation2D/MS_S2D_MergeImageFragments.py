@@ -1,4 +1,4 @@
-#! /usr/local/python-2.7.8/bin/python     
+#! /usr/local/python-2.7.6/bin/python     
 #
 # Copyright (C) 2015 by Howard Hughes Medical Institute.
 #
@@ -51,7 +51,7 @@ def compile_code(options):
 
 # -----------------------------------------------------------------------
 
-def process_inputs_xmerge(input_label, node, dict_nodes_xmerge, options):
+def process_inputs_xmerge(input_label, xdim, ydim, node, dict_nodes_xmerge, options):
 
     node        = int(node)
     y           = dict_nodes_xmerge[node][0]
@@ -64,6 +64,7 @@ def process_inputs_xmerge(input_label, node, dict_nodes_xmerge, options):
     executable_path = os.path.join(ms_home, "Bin", options.executable)
     command_xmerge = executable_path + " x " + str(options.nx)      + " " +\
                      str(options.dx) + "   " + str(options.verbose) + " " +\
+                     str(ydim)       + "   " + str(xdim)            + " " +\
                      output_path 
     if options.verbose:
         print "command_xmerge=", command_xmerge
@@ -85,15 +86,16 @@ def process_inputs_xmerge(input_label, node, dict_nodes_xmerge, options):
 
 # ----------------------------------------------------------------------
 
-def process_inputs_ymerge(input_label, node, dict_nodes_ymerge, options):
+def process_inputs_ymerge(input_label, xdim, ydim, node, dict_nodes_ymerge, options):
 
     node        = int(node)
     z           = dict_nodes_ymerge[node]
 
     output_path = os.path.join(ms_temp, input_label + "_z" + str(z+1) + "_BW.png")
     executable_path = os.path.join(ms_home, "Bin", options.executable)
-    command_ymerge = executable_path  + " y " + str(options.ny)      + " " +\
+    command_ymerge = executable_path  + " y " + str(options.ny)           + " " +\
                      str(options.dy)  + "   " + str(int(options.verbose)) + " " +\
+                     str(ydim)        + "   " + str(xdim)                 + " " +\
                      output_path
     command_rm     = "rm -f "
     for y in range(0, int(options.ny)):
@@ -123,7 +125,7 @@ def process_inputs_zmerge(zdim, input_label, node, dict_nodes_zmerge, options):
     executable_path = os.path.join(ms_home, "Utilities", \
                                    "MS_UT_CreateH5Stack.py")
     command_zmerge = executable_path    + " " + ms_temp + " -t data " + \
-                     " -c -m " + match_str + " -u _y -o " + output_path +\
+                     " -m " + match_str + " -u _y -o " + output_path +\
                      " -z " + str(options.zmin) + " -Z " + str(options.zmax)
     if options.verbose:
         print "\ncommand_zmerge=", command_zmerge
@@ -131,11 +133,10 @@ def process_inputs_zmerge(zdim, input_label, node, dict_nodes_zmerge, options):
     z_range = range(max(0, int(options.zmin)), min(zdim, int(options.zmax)))
     for z in z_range:
         if match_str0 in ["_Seg.png", "_RGB.png"]:
-            input_file = input_label + "_z" + str(z+1) + match_str0
+            input_file = input_label + "_z" + str(z+1) + "_" + match_str0
         else:
-            input_file = input_label + "_z" + str(z+1) + match_str0
+            input_file = input_label + "_z" + str(z+1) + "_" + match_str0
     input_path = os.path.join(ms_temp, input_file)
-#   command_zmerge += " " + input_path
     command_rm     += " " + input_path
     os.system(command_zmerge)
 
@@ -223,7 +224,7 @@ def parse_option(option):
 
 if __name__ == "__main__":
    
-    usage = "\nUsage: %prog input_label merge_dir ydim xdim zdim node [options (-h to list)]\n"
+    usage = "\nUsage: %prog input_label merge_dir xdim ydim zdim node [options (-h to list)]\n"
 
     parser = optparse.OptionParser(usage=usage, version="%%prog ")
     parser = merge_command_line_parser(parser)
@@ -235,10 +236,10 @@ if __name__ == "__main__":
         input_label, mdir, xdim, ydim, zdim, node = args[0:6]
         if mdir == 'x':
             num_nodes, dict_nodes_xmerge = map_nodes_xmerge(xdim, ydim, zdim, options)
-            process_inputs_xmerge(input_label, node, dict_nodes_xmerge, options)
+            process_inputs_xmerge(input_label, xdim, ydim, node, dict_nodes_xmerge, options)
         elif mdir == 'y':
             num_nodes, dict_nodes_ymerge = map_nodes_ymerge(ydim, zdim, options)
-            process_inputs_ymerge(input_label, node, dict_nodes_ymerge, options)
+            process_inputs_ymerge(input_label, xdim, ydim, node, dict_nodes_ymerge, options)
         elif mdir == 'z':
             num_nodes, dict_nodes_zmerge = map_nodes_zmerge(zdim, options)
             process_inputs_zmerge(zdim, input_label, node, dict_nodes_zmerge, options)

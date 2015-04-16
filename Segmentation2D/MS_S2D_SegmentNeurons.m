@@ -60,7 +60,7 @@ function Ibwn = MS_S2D_SegmentNeurons(inputName,fracBlack,fracBlack2,varargin)
         % Color components
         if options.dispOn || options.dispOn2 || length(options.outRGB) > 0
             Lrgb = label2rgb(L, 'jet', 'w', 'shuffle');
-            MS_S2D_ShowImage(Lrgb, 'Colored labels of neurons (Lrgb)', options)
+            MS_S2D_ShowImage(Lrgb, 'Colored labels of neurons (Lrgb)', options);
             if length(options.outRGB) > 0
                 imwrite(Lrgb, options.outRGB);
             end
@@ -77,7 +77,7 @@ function Ibwn = segment_neurons(Igr, M_thr, options)
     % NOTE2: edges are computed incorrectly by Matlab's imhist function,
     %        so a custom function has been implemented for compuring the edges
     %
-    Ibw = im2bw(Igr, 0.5);                 % all values are == logical(0)
+    Ibw = im2bw(Igr, 1);     % all values are == logical(0)
     imwrite(Igr, 'Igr1_MS_S2D_SegmentNeurons.png');
     imwrite(Ibw, 'Ibw_MS_S2D_SegmentNeurons.tiff');
     Ibw(Igr > M_thr) = logical(1);

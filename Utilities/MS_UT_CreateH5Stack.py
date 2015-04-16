@@ -1,4 +1,4 @@
-#! /usr/local/python-2.7.8/bin/python
+#! /usr/local/python-2.7.6/bin/python
 #
 # Copyright (C) 2015 by Howard Hughes Medical Institute.
 #
@@ -122,19 +122,19 @@ def update_labels_smooth(labels_stack, image_stack, mean_signal, alpha):
 # ----------------------------------------------------------------------
 
 # In the default stack, pixel values = 1 for data type=mask and 0 otherwise
-def create_default_stack(image_shape, num_images, output_type):
+def create_default_stack(image_data, num_images, output_type):
     print "...Creating a default stack for output_type=", output_type
-    stack_shape = (image_shape[0],image_shape[1],num_images)
-    if len(image_shape) > 2 or not output_type == "data":
-        stack_shape = (image_shape[0],image_shape[1],num_images,3)
-    print "image_shape=", image_shape, " stack_shape=", stack_shape
+    stack_shape = (image_data.shape[0],image_data.shape[1],num_images)
+    if len(image_data.shape) > 2 or not output_type == "data":
+        stack_shape = (image_data.shape[0],image_data.shape[1],num_images,3)
+    print "image_data.shape=", image_data.shape, " stack_shape=", stack_shape
     dtype = "float"
     if not output_type == "data":
         dtype = "int" 
     if output_type == "mask":
         nd_stack = numpy.ones(stack_shape, dtype=dtype)  # 1 for mask
     else:
-        nd_stack = numpy.zeros(stack_shape, dtype=dtype)
+        nd_stack = numpy.zeros(stack_shape, dtype=image_data.dtype)
     print "Default stack shape=", nd_stack.shape
     return nd_stack
 
@@ -192,16 +192,20 @@ def update_nd_stack(nd_stack, im, k, output_type):
     stack_shape = nd_stack.shape
 #   print "stack_shape=", stack_shape, " im.shape=", im.shape, " k=", k
     if output_type == "data":
-        print "nd_stack.shape=", nd_stack.shape, " im.shape=", im.size 
-        im.shape = im.size
-        im1 = numpy.array(im.getdata(), numpy.uint8).reshape(im.size[1], im.size[0])
-        print "im.shape=", im1.shape
-        print "type(nd_stack)=", type(nd_stack), " type(im)=", type(im1) 
-        nd_stack[:,:,k] = im1
-#       for j in range(0, stack_shape[1]):
-#           print "j=", j, " im[:,j].shape=", im[:,j].shape, " nd_stack[:,j,k].shape=", nd_stack[:,j,k].shape
-#           nd_stack[:,j,k] = im[:,j]
-#           nd_stack[:,:,k] = numpy.array(im)
+        im_data = numpy.asarray(im)
+        print "nd_stack.shape=", nd_stack.shape, " im_data.shape=", im_data.shape 
+        if len(im_data.shape) == 2:
+            # BW or Seg
+            print "type(nd_stack)=", type(nd_stack[0,0,0]), " type(im_data)=",  type(im_data[0,0])
+            im_data = numpy.array(im.getdata(), numpy.uint8).reshape(im.size[0], im.size[1])
+            print "type(nd_stack)=", type(nd_stack[0,0,0]), " type(im_data)=",  type(im_data[0,0])
+            nd_stack[:,:,k] = im_data
+        else:
+            # RGB image
+            print "type(nd_stack)=", type(nd_stack[0,0,0,0]), " type(im_data)=",  type(im_data[0,0,0])
+            im_data = numpy.array(im.getdata(), numpy.uint8).reshape(im.size[0], im.size[1], 3)
+            nd_stack[:,:,k,:] = im_data
+        print "...done"
     else:
         if len(im.shape) == 3 and output_type == "labels":
             for i in range(0, stack_shape[0]):
@@ -252,20 +256,20 @@ if __name__ == "__main__":
     myfile = os.path.join(input_dir, input_files[0])
     try:
         # Using PIL
-        image_shape = Image.open(myfile).size
+        image_data = numpy.asarray(Image.open(myfile))
     except:
         try:
             # Using scipy
-            image_shape = misc.imread(myfile).shape
+            image_data = numpy.asarray(misc.imread(myfile))
         except:
             try:
                 # Using Matplotlib
-                image_shape = matplotlib.image.imread(myfile, format = 'png').shape
+                image_data = numpy.asarray(matplotlib.image.imread(myfile, format = 'png'))
             except:
                 print "Unable to read image file", myfile
                 sys.exit(2)
     num_images = min(len(input_files), int(options.zmax)-int(options.zmin))
-    nd_stack = create_default_stack(image_shape, num_images, options.output_type)
+    nd_stack = create_default_stack(image_data, num_images, options.output_type)
     nd_stack = populate_stack(nd_stack, input_dir, input_files, options.output_type,"", options)
     if options.chunked:
         chunk_shape = (1, image_shape[0], image_shape[1])

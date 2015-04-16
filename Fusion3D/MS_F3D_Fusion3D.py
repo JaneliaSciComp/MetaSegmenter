@@ -1,4 +1,4 @@
-#! /usr/local/python-2.7.8/bin/python     
+#! /usr/local/python-2.7.6/bin/python     
 #
 # Copyright (C) 2015 by Howard Hughes Medical Institute.
 #

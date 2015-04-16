@@ -1,4 +1,4 @@
-#! /usr/local/python-2.7.8/bin/python
+#! /usr/local/python-2.7.6/bin/python
 #
 # Copyright (C) 2015 by Howard Hughes Medical Institute.
 #
@@ -37,20 +37,26 @@ else:
 print "Stack shape=", dataset.shape
 print "Layer shape=", image_data.shape
 
+plot_3 = 0
 if len(image_data.shape) == 2:
     plt.imshow(image_data, cmap = cm.Greys_r) # show as grayscale image
     plt.show()
 elif len(image_data.shape) == 3:
-    fig = plt.figure(figsize=(12, 9))
-    num_images = int(image_data.shape[2])
-    for i in range(0, num_images):
-       a=fig.add_subplot(1,num_images,i+1)
-       image_data1 = image_data[:,:,i]
-#      imgplot = plt.imshow(image_data1)                     # RGB
-       imgplot = plt.imshow(image_data1, cmap = cm.Greys_r)  # Grayscale
-       a.set_title('Image' + str(i+1))
-       plt.colorbar(ticks=[0.1,0.3,0.5,0.7], orientation ='horizontal')
-    show()
+    if plot_3:
+        fig = plt.figure(figsize=(12, 9))
+        num_images = int(image_data.shape[2])
+        for i in range(0, num_images):
+           a=fig.add_subplot(1,num_images,i+1)
+           image_data1 = image_data[:,:,i]
+#          imgplot = plt.imshow(image_data1)                     # RGB
+           imgplot = plt.imshow(image_data1, cmap = cm.Greys_r)  # Grayscale
+           a.set_title('Image' + str(i+1))
+           plt.colorbar(ticks=[0.1,0.3,0.5,0.7], orientation ='horizontal')
+        show()
+    else:
+        image_data1 = image_data[:,:,1]
+        plt.imshow(image_data1, cmap = cm.Greys_r) # show as grayscale image
+        plt.show()
 else:
     sys.exit("\nProcessing laters of shape " + str(image_data.shape) + " is not supported\n")
 exit()

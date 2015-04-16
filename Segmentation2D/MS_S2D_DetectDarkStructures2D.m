@@ -19,11 +19,6 @@ function Ibwd = MS_S2D_DetectDarkStructures2D(inputName,fracBlack,fracBlack2,var
         return
     end
 
-    frac_black = 0.6;
-    if options.fracBlack > 0
-        frac_black = options.fracBlack;
-    end
-
     % Input image data
     if strcmp(class(inputName),'char') && exist(inputName, 'file') == 2   % input is image file
         I = imread(inputName);
@@ -35,7 +30,7 @@ function Ibwd = MS_S2D_DetectDarkStructures2D(inputName,fracBlack,fracBlack2,var
 
     % Original image
     if options.dispOn
-        MS_S2D_ShowImage(Igr, 'Original image (Igr)', options);
+        MS_S2D_ShowImage(I, 'Original image (I)', options);
     end
 
     if length(size(I) > 2)
@@ -47,7 +42,7 @@ function Ibwd = MS_S2D_DetectDarkStructures2D(inputName,fracBlack,fracBlack2,var
     Igr = mat2gray(I);
     clear I;
 
-    M_thr = MS_S2D_GetThresholdIntensity(Igr, fracBlack, subsections, options);      
+    M_thr = MS_S2D_GetThresholdIntensity(Igr, fracBlack2, subsections, options);      
     Ibwd = segment_dark_structures(Igr, M_thr, options);
     Ibwd = MS_S2D_AddBoundaryPadding(Ibwd, 0);
 

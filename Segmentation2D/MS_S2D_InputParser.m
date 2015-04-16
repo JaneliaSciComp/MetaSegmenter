@@ -17,6 +17,7 @@ classdef MS_S2D_InputParser < inputParser
         defaultOutBW     = ''; % name for output black/white image file
         defaultOutSeg    = ''; % name for output segmentation file
         defaultOutRGB    = ''; % name for output colored labels file
+        defaultHistogram = 0;
     end
 
     methods
@@ -43,6 +44,7 @@ classdef MS_S2D_InputParser < inputParser
             % Optional parameters
             if compiled_code
                 obj.defaultVerbose   = num2str(obj.defaultVerbose);
+                obj.defaultHistogram = num2str(obj.defaultHistogram);
                 obj.defaultDispOn    = num2str(obj.defaultDispOn);        
                 obj.defaultDispOn2   = num2str(obj.defaultDispOn2);
                 obj.defaultCloseAll  = num2str(obj.defaultCloseAll);
@@ -56,6 +58,7 @@ classdef MS_S2D_InputParser < inputParser
 
             % Optional parameters
             obj.addParamValue('verbose', obj.defaultVerbose);
+            obj.addParamValue('hist',    obj.defaultHistogram);
             obj.addParamValue('dispOn',  obj.defaultDispOn); 
             obj.addParamValue('dispOn2', obj.defaultDispOn2); 
             obj.addParamValue('closeAll',obj.defaultCloseAll);

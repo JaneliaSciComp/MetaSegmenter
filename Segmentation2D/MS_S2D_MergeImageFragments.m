@@ -5,8 +5,9 @@
 % nf  = total number of fragments in the direction of merge
 % df  = pixels overlap in the direction of merge
 function [] = MS_S2D_MergeImageFragments(dir, nf0, df0, verbose0, ...
-                                         output_name, varargin)
-    num_input_files = nargin - 5;
+                                         Ysize0, Xsize0, output_name, varargin)
+    disp(['nargin=' num2str(nargin)]);
+    num_input_files = nargin - 7;
     disp(['class(df0)=' class(df0) ' class(nf0)='  class(nf0)]);
     verbose = int32(str2double(verbose0));
     df      = int32(str2double(df0));
@@ -41,9 +42,9 @@ function [] = MS_S2D_MergeImageFragments(dir, nf0, df0, verbose0, ...
             end
         end
         im = imread(varargin{i});
+        disp(['size(im)=' num2str(size(im))]);
         if i == 1
             if strcmp(dir, 'x')
-                disp(['size(im, 2)=' num2str(size(im, 2))]);
                 ysize = size(im, 1);
                 xsize = size(im, 2) - df;
                 dir
@@ -51,7 +52,7 @@ function [] = MS_S2D_MergeImageFragments(dir, nf0, df0, verbose0, ...
                 size(im, 2)
                 df
                 xsize
-                Xsize = xsize * nf;
+                Xsize = int32(str2double(Xsize0));         
                 Xsize
                 disp(['Xsize=' num2str(Xsize)]);
                 Ysize = ysize;
@@ -74,7 +75,8 @@ function [] = MS_S2D_MergeImageFragments(dir, nf0, df0, verbose0, ...
                 output_image = uint8(zeros(Ysize, Xsize));
                 output_image(1:ysize, 1:(xsize+df)) = im;
                 disp(['size(output_image)=' num2str(size(output_image))]);
-            else
+            else % dir == y
+                disp(['i=' num2str(i) ' size(im)=' num2str(size(im))]);
                 ysize = size(im, 1) - df;
                 xsize = size(im, 2);
                 dir
@@ -83,7 +85,7 @@ function [] = MS_S2D_MergeImageFragments(dir, nf0, df0, verbose0, ...
                 df
                 ysize
                 Xsize = xsize;
-                Ysize = ysize * nf;
+                Ysize = int32(str2double(Ysize0));           
                 mx    = xsize;
                 my    = 2*df;
                 R     = uint8(zeros(my, mx));
@@ -104,26 +106,33 @@ function [] = MS_S2D_MergeImageFragments(dir, nf0, df0, verbose0, ...
             end
         else % Merge current fragment with the output image
             if strcmp(dir, 'x')
+                xdim = size(output_image, 2);
                 xmid = (i-1)*xsize;
                 xmin =       xmid  - df + 1; % left  boundary of the overlap zone
                 xmax =       xmid  + df;     % right boundary of the overlap zone
-                disp(['i=' num2str(i) ' xsize=' num2str(xsize) ' xmin=' num2str(xmin) ' xmax=' num2str(xmax)]);
+                disp(['i=' num2str(i) ' xsize=' num2str(xsize) ' xmin=' num2str(xmin) ' xmax=' num2str(xmax) ' dx=' num2str(xmax-xmin)]);
+                disp(['im_min=' num2str(2*df+1) ' im_max=' num2str(xsize+  df) ' d_im=' num2str(xsize+  df - 2*df -1)]);
                 if i < num_input_files
                     output_image(:,(xmax + 1):(i*xsize+df)) = im(:, (2*df+1):(xsize+2*df));
                 else
-                    output_image(:,(xmax + 1):(i*xsize   )) = im(:, (2*df+1):(xsize+  df));
+                    im_xsize = size(im, 2);
+                    output_image(:,(xmax + 1):Xsize       ) = im(:, (2*df+1):im_xsize);    
                 end
                 output_image(:, xmin:xmax) = ...
                     round(M0 .* output_image(:, xmin:xmax)...
                         + M1 .* uint8(im(:, 1:(2*df))));
             else % dir == 'y'
+                ydim = size(output_image, 1);
                 ymid = (i-1)*ysize;
                 ymin =       ymid  - df + 1;
                 ymax =       ymid  + df;
                 if i < num_input_files
+                    disp(['i=' num2str(i) ' size(output_image)=' num2str(size(output_image)) ' i*ysize+df=' num2str(i*ysize+df)]);
+                    disp(['i=' num2str(i) ' size(im)='  num2str(size(im)) ' ysize+2*df=' num2str(ysize+2*df)]);
                     output_image((ymax + 1):(i*ysize+df),:) = im((2*df+1):(ysize+2*df),:);
                 else
-                    output_image((ymax + 1):(i*ysize   ),:) = im((2*df+1):(ysize+  df),:);
+                    im_ysize = size(im, 1);
+                    output_image((ymax + 1):Ysize       ,:) = im((2*df+1):im_ysize,:);
                 end
                 disp(['i=' num2str(i) ' ymin=' num2str(ymin) ' ymax=' num2str(i*ysize+df)]);
                 output_image( ymin:ymax,:) = ...
