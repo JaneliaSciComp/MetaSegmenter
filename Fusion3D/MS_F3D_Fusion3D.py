@@ -33,8 +33,8 @@ def fusion3d_command_line_parser(parser):
     parser.add_option("-m", "--maxsize",dest="msize", help="# of subsections for processing a fragment in y (length) direction",metavar="nlen",default=sys.maxint)
     parser.add_option("-n", "--node",   dest="node", help="id of the cluster node to be used", metavar="node",  default=0)
     parser.add_option("-o", "--output_folder",dest="output_folder",help="output folder",metavar="output_folder",default=ms_data)
-    parser.add_option("-p", "--processing_step_beg",dest="processing_step_beg",help="start processing from this step (1:6)",metavar="processing_step_beg",default=1)
-    parser.add_option("-P", "--processing_step_end",dest="processing_step_end",help="end processing at this step (1:6)",metavar="processing_step_end",default=6)
+    parser.add_option("-p", "--processing_step_beg",dest="processing_step_beg",help="start processing from matr(1), merge(2), trav(3), relab(4) or epil(5)",metavar="processing_step_beg",default=1)
+    parser.add_option("-P", "--processing_step_end",dest="processing_step_end",help="end processing with matr(1), merge(2), trav(3), relab(4) or epil(5)",metavar="processing_step_end",default=5)
     parser.add_option("-s", "--sub",dest="submission_command", help="source, qsub or qsub_debug", metavar="submission_command", default="qsub")
     parser.add_option("-S", "--slots",dest="num_slots", help="# of cluster slots per 1 job (default=1)", metavar="num_slots", default=1)
     parser.add_option("-v", "--verbose",action="store_true",dest="verbose",help="increase the verbosity level of output",default=False)
@@ -250,7 +250,9 @@ def create_generate_matrices_job(outfolderpath, \
 
 def create_merge_job(outfolderpath, input_data, input_type,\
                        input_dim, input_label, options):
-    num_nodes = int(options.zmax) - int(options.zmin) 
+    zmin = max(0,            int(options.zmin))
+    zmax = min(input_dim[2], int(options.zmax))
+    num_nodes = zmax - zmin
     if options.verbose:
         print "Number of merge nodes=", num_nodes
 
@@ -265,10 +267,10 @@ def create_merge_job(outfolderpath, input_data, input_type,\
     command_merge = executable_path \
                       + " " + input_data + " " + input_type \
                       + " -n " + " $SGE_TASK_ID " \
-                      + " -X " + str(options.nx)   \
-                      + " -Y " + str(options.ny)   \
-                      + " -z " + str(options.zmin) \
-                      + " -Z " + str(options.zmax)
+                      + " -X " + str(options.nx)  \
+                      + " -Y " + str(options.ny)  \
+                      + " -z " + str(zmin)        \
+                      + " -Z " + str(zmax)           
     if options.verbose:
         command_merge += " -v "
     if options.debug:
@@ -286,6 +288,8 @@ def create_merge_job(outfolderpath, input_data, input_type,\
 
 def create_traverse_job(outfolderpath, input_data, input_type,\
                       input_dim, input_label, options):
+    zmin = max(0,            int(options.zmin))
+    zmax = min(input_dim[2], int(options.zmax))
     if options.verbose:
         print "Number of traverse  nodes=", 1
     traverse_script_path = \
@@ -296,8 +300,8 @@ def create_traverse_job(outfolderpath, input_data, input_type,\
     scr = open(traverse_script_path,'wt')
     scr.write("#!/usr/bash\n")
     command_traverse = executable_path \
-                   + "    " + input_data + " " + " " + input_type \
-                   + " -z " + str(options.zmin)+ " -Z " + str(options.zmax)
+                   + "    " + input_data + "   "  + input_type \
+                   + " -z " + str(zmin)  + " -Z " + str(zmax)
     if options.verbose:
         command_traverse += " -v "
     if options.debug:
@@ -320,14 +324,16 @@ def create_relabel_job(outfolderpath, input_data, input_type,\
                      input_label + ".sh")
     executable_path = os.path.join(ms_home,"Fusion3D", \
                                    "MS_F3D_RelabelSegmentedData.py")
-    num_nodes = int(options.zmax) - int(options.zmin)
+    zmin = max(0,            int(options.zmin))
+    zmax = min(input_dim[2], int(options.zmax))
+    num_nodes = zmax - zmin
     scr = open(relabel_script_path,'wt')
     scr.write("#!/usr/bash\n")
     scr.write("#$ -t 1-" + str(num_nodes) + "\n")
     command_relabel = executable_path \
                    + " -n " + " $SGE_TASK_ID " \
-                   + "    " + input_data + " " + " " + input_type \
-                   + " -z " + str(options.zmin)+ " -Z " + str(options.zmax)
+                   + "    " + input_data + "    " + input_type \
+                   + " -z " + str(zmin)  + " -Z " + str(zmax)
     if options.verbose:
         command_relabel += " -v "
     if options.debug:
@@ -375,7 +381,7 @@ def submit_job(script_path, base_command, jobid_in, options):
     if re.search("Matrices",  script_path):
         prog_name = "ms3.matr" 
     elif re.search("Merge_fusion",  script_path):
-        prog_name = "ms3.mergef"
+        prog_name = "ms3.mergfus"
     elif re.search("Traverse",  script_path):
         prog_name = "ms3.travrs"
     elif re.search("Relabel",  script_path):
@@ -511,7 +517,7 @@ if __name__ == "__main__":
     3) coordinates of DVID subvolume: [xmin:xmax,ymin:ymax,zmin:zmax]"   
 
 #   Steps of processing:
-#   1) MS_F3D_GenerateOverlapMatrix.py +  MS_F3D_GenerateFusionMatrix.py
+#   1) MS_F3D_GenerateMatrices.py
 #   2) MS_F3D_MergeFusionMatrices.py
 #   3) MS_F3D_TraverseFusionTrees.py
 #   4) MS_F3D_RelabelSegmentedData.py
@@ -525,11 +531,11 @@ if __name__ == "__main__":
         input_data = args[0]
         input_type = get_input_type(input_data, options)
         if input_type == 'DVID':
-            input_label = "ms_DVID"
+            input_label = "ms3_DVID"
         elif input_type == "directory":
-            input_label = "ms_" + ntpath.split(input_data)[1]
+            input_label = "ms3_" + ntpath.split(input_data)[1][4:]
         else:
-            input_label = "ms_" + ntpath.split(input_data)[1].split('.')[0]
+            input_label = "ms3_" + ntpath.split(input_data)[1].split('.')[0][4:]
         if input_type in ["file", "directory", "DVID"]:
             if options.verbose and int(options.node) == 0:
                 print "Input type=", input_type

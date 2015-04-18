@@ -165,11 +165,11 @@ if __name__ == "__main__":
 
     if len(args) == 2:
         input_data, input_type = args
-        input_label    = "ms_DVID"
+        input_label    = "ms3_DVID"
         if input_type == "directory":
-            input_label = input_data
+            input_label = "ms3_" + input_data[4:]
         else:
-            input_label = input_data.split('.')[0]
+            input_label = "ms3_" + input_data.split('.')[0][4:]
         if options.verbose:
             print "Generating maps ..."
         dmap, umap, fmatrix = initialize_labels_and_generate_maps(input_label, options)

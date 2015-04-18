@@ -31,8 +31,8 @@ def read_input_data(input_data, input_type, zmin, zmax, options):
         input_path = os.path.join(ms_data, input_data)
         f  = h5py.File(input_path, 'r')
         key = f.keys()[0]
-        image_data1 = numpy.transpose(f[key][zmin]) # read one chunk
-        image_data2 = numpy.transpose(f[key][zmax])
+        image_data1 = numpy.transpose(f[key][zmin  ]) # read one chunk
+        image_data2 = numpy.transpose(f[key][zmax-1])
         data_shape = image_data1.shape
     elif input_type == "directory":
         files = []
@@ -61,7 +61,7 @@ def read_input_data(input_data, input_type, zmin, zmax, options):
         dvid_volume = voxels.VoxelsAccessor(connection, options.uuid, \
                                             options.dataset)
         image_data1 = numpy.asarray(dvid_volume[:,:,:, zmin])
-        image_data2 = numpy.asarray(dvid_volume[:,:,:, zmax])
+        image_data2 = numpy.asarray(dvid_volume[:,:,:, zmax-1])
         # Put data in C-contiguous order (last-index varies the fastest).
         image_data1 = image_data1.copy(order='C')
         image_data2 = image_data2.copy(order='C')
@@ -71,11 +71,11 @@ def read_input_data(input_data, input_type, zmin, zmax, options):
 
 def produce_unified_matrices(input_data, input_type, options):  
 
-    input_label    = "ms_DVID"
+    input_label    = "ms3_DVID"
     if input_type == "directory":
-        input_label = input_data
+        input_label = "ms3_" + input_data[4:]
     else:
-        input_label = input_data.split('.')[0]
+        input_label = "ms3_" + input_data.split('.')[0][4:]
 
     node = int(options.node)
     if options.verbose:

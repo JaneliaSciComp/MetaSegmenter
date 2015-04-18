@@ -440,7 +440,7 @@ def create_merging_job(mdir, outfolderpath, input_data, input_type,\
 # -----------------------------------------------------------------------------
 
 def submit_segmentation_job(segm_script_path, base_command, options):
-    prog_name = "ms.segm"
+    prog_name = "ms2.segm"
     jobid1 = 0
     if options.submission_command == "qsub":
         command = base_command + " -V -N " + prog_name +\
@@ -464,7 +464,7 @@ def submit_segmentation_job(segm_script_path, base_command, options):
 #------------------------------------------------------------------------------
 
 def submit_xmerge_job(xmerge_script_path, base_command, jobid1, options):
-    prog_name = "ms.xmrg" 
+    prog_name = "ms2.xmrg" 
     jobid2 = 0
     if options.submission_command == "qsub":
         command = base_command + " -V -N " + prog_name +\
@@ -488,7 +488,7 @@ def submit_xmerge_job(xmerge_script_path, base_command, jobid1, options):
 # -----------------------------------------------------------------------------
 
 def submit_ymerge_job(ymerge_script_path, base_command, jobid2, options):
-    prog_name = "ms.ymrg"  
+    prog_name = "ms2.ymrg"  
     jobid3 = 0
     if options.submission_command == "qsub":
         command = base_command + " -V -N " + prog_name +\
@@ -513,7 +513,7 @@ def submit_ymerge_job(ymerge_script_path, base_command, jobid2, options):
 # -----------------------------------------------------------------------------
 
 def submit_epilog_job(epilog_script_path, base_command, jobid3, options):
-    prog_name = "ms.epilog"
+    prog_name = "ms2.epilog"
     command = base_command + " -V -N " + prog_name
     if options.submission_command == "qsub":
         command += " -o /dev/null -e /dev/null "
@@ -665,9 +665,9 @@ if __name__ == "__main__":
     if len(args) == 1:
         input_data = args[0]
         input_type = get_input_type(input_data, options)
-        input_label = "ms_DVID"
+        input_label = "ms2_DVID"
         if input_type in ["file", "directory"]:
-            input_label = "ms_" + input_data
+            input_label = "ms2_" + input_data
         if input_type in ["file", "directory", "DVID"]:
             if options.verbose and int(options.node) == 0:
                 print "Input type=", input_type

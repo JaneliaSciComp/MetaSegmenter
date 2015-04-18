@@ -82,11 +82,11 @@ def relabel_image_data(image_data, input_label, options):
 
 def relabel_one_layer(input_data, input_type, options):  
 
-    input_label    = "ms_DVID"
+    input_label    = "ms3_DVID"
     if input_type == "directory":
-        input_label = input_data
+        input_label = "ms3_" + input_data[4:]
     else:
-        input_label = input_data.split('.')[0]
+        input_label = "ms3_" + input_data.split('.')[0][4:]
 
     # Extract image data
     image_data = numpy.matrix(get_image_data(input_data, input_type, options))
@@ -99,7 +99,8 @@ def relabel_one_layer(input_data, input_type, options):
                                    "_z" + str(z+1) + ".png")
     else:
         output_path = options.output_path
-    img = Image.fromarray(relabeled_image_data).convert('RGB')
+#   img = Image.fromarray(relabeled_image_data).convert('RGB')
+    img = Image.fromarray(relabeled_image_data)
     if options.verbose:
         print "Saving the relabeled image in file: ", output_path
     img.save(output_path)

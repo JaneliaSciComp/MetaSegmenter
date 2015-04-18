@@ -13,6 +13,8 @@ classdef MS_S2D_InputParser < inputParser
         defaultNumTilesY = 1;
         defaultTileX     = 0;
         defaultTileY     = 0;
+        defaultSectionX  = 0;
+        defaultSectionY  = 0;
         defaultMaxSize   = Inf; 
         defaultOutBW     = ''; % name for output black/white image file
         defaultOutSeg    = ''; % name for output segmentation file
@@ -53,6 +55,8 @@ classdef MS_S2D_InputParser < inputParser
                 obj.defaultNumTilesY = num2str(obj.defaultNumTilesY);
                 obj.defaultTileX     = num2str(obj.defaultTileX);        
                 obj.defaultTileY     = num2str(obj.defaultTileY);        
+                obj.defaultSectionX  = num2str(obj.defaultSectionX);
+                obj.defaultSectionY  = num2str(obj.defaultSectionY);
                 obj.defaultMaxSize   = num2str(obj.defaultMaxSize);
             end
 
@@ -67,6 +71,8 @@ classdef MS_S2D_InputParser < inputParser
             obj.addParamValue('ny',      obj.defaultNumTilesY);
             obj.addParamValue('ix',      obj.defaultTileX);          
             obj.addParamValue('iy',      obj.defaultTileY);
+            obj.addParamValue('sx',      obj.defaultSectionX);
+            obj.addParamValue('sy',      obj.defaultSectionY);
             obj.addParamValue('maxSize', obj.defaultMaxSize);
             obj.addParamValue('outBW',   obj.defaultOutBW')
             obj.addParamValue('outSeg',  obj.defaultOutSeg);

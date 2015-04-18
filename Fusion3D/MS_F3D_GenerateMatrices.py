@@ -133,7 +133,7 @@ def read_input_data(input_data, input_type, ymin, ymax, xmin, xmax, \
         f  = h5py.File(input_path, 'r')
         key = f.keys()[0]
         image_data1 = numpy.transpose(f[key][zmin]) # read one chunk
-        image_data2 = numpy.transpose(f[key][zmax])
+        image_data2 = numpy.transpose(f[key][zmax-1])
     elif input_type == "directory":
         files = []
         i = 0
@@ -161,7 +161,7 @@ def read_input_data(input_data, input_type, ymin, ymax, xmin, xmax, \
         dvid_volume = voxels.VoxelsAccessor(connection, options.uuid, \
                                             options.dataset)
         image_data1 = numpy.asarray(dvid_volume[:, ymin:ymax, xmin:xmax, zmin])
-        image_data2 = numpy.asarray(dvid_volume[:, ymin:ymax, xmin:xmax, zmax])
+        image_data2 = numpy.asarray(dvid_volume[:, ymin:ymax, xmin:xmax, zmax-1])
         # Put data in C-contiguous order (last-index varies the fastest).
         image_data1 = image_data1.copy(order='C')
         image_data2 = image_data2.copy(order='C')
@@ -187,9 +187,6 @@ def output_overlap_matrix(overlap_matrix, input_label, x, y, z, options):
     if options.verbose:
         print "Storing the overlap matrix in file ", output_path
     numpy.savetxt(output_path, overlap_matrix, fmt='%10u', delimiter='\t')
-    if options.debug:
-        a = numpy.loadtxt(output_path, delimiter='\t')
-        print "overlap_matrix[0:4,0:4]=", a[0:4,0:4]
 
 # -----------------------------------------------------------------------
 
@@ -283,11 +280,11 @@ def output_fusion_matrix(fusion_matrix, input_label, x, y, z, options):
 
 def process_inputs(input_data, input_type, dict_node_xyz, options):
     if input_type == 'DVID':
-        input_label = "ms_DVID" 
+        input_label = "ms3_DVID" 
     elif input_type == "directory":
-        input_label = input_data 
+        input_label = "ms3_" + input_data[4:] 
     else:
-        input_label = input_data.split('.')[0]
+        input_label = "ms3_" + input_data.split('.')[0][4:]
 
     node = int(options.node)
     if options.verbose:

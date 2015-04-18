@@ -126,8 +126,7 @@ def extract_image_data(input_data, input_type, ymin, ymax,\
         files = []
         i = 0
         dir_path = os.path.join(ms_data,input_data)
-        files_list = os.listdir(dir_path)
-        files_list.sort()
+        files_list = sorted(os.listdir(dir_path))
         files = []
         for file in files_list:
             file_path = os.path.join(dir_path, file)
@@ -206,9 +205,9 @@ if __name__ == "__main__":
     if len(args) == 2:
         input_data, input_type = args
         input_dim = [int(options.ydim), int(options.xdim), int(options.zdim)]
-        input_label = "ms_DVID"
+        input_label = "ms2_DVID"
         if input_type in ["file", "directory"]:
-            input_label = "ms_" + input_data.split('.')[0]
+            input_label = "ms2_" + input_data.split('.')[0]
         num_nodes, dict_node_xyz = \
             map_node_to_xyz(input_dim, input_label, options)
         if options.verbose:
