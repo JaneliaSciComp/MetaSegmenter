@@ -17,36 +17,13 @@ from scipy import misc
 import imghdr
 import matplotlib
 from PIL import Image
-import ntpath
+
+import MS_Dict
+import MS_Options
 
 ms_home = os.environ['MS_HOME'] # where source code is located
 ms_data = os.environ['MS_DATA'] # dir for initial input data and final output 
 ms_temp = os.environ['MS_TEMP'] # dir for intermediate data files
-
-# ----------------------------------------------------------------------
-
-def fusion3d_command_line_parser(parser):
-    parser.add_option("-A", "--project",dest="project_code",help="code to be used with qsub",metavar="project_code", default="flyTEM")
-    parser.add_option("-D", "--debug",dest="debug",help="don't delete intermediate outputs", action="store_true", default=False)
-    parser.add_option("-e", "--executable",dest="executable",help="executable",metavar="executable",default="MS_S2D_Segmentation2D")
-    parser.add_option("-l", "--nlen",   dest="nlen", help="# of subsections for processing a fragment in y (length) direction",metavar="nlen", default="1")
-    parser.add_option("-m", "--maxsize",dest="msize", help="# of subsections for processing a fragment in y (length) direction",metavar="nlen",default=sys.maxint)
-    parser.add_option("-n", "--node",   dest="node", help="id of the cluster node to be used", metavar="node",  default=0)
-    parser.add_option("-o", "--output_folder",dest="output_folder",help="output folder",metavar="output_folder",default=ms_data)
-    parser.add_option("-p", "--processing_step_beg",dest="processing_step_beg",help="start processing from matr(1), merge(2), trav(3), relab(4) or epil(5)",metavar="processing_step_beg",default=1)
-    parser.add_option("-P", "--processing_step_end",dest="processing_step_end",help="end processing with matr(1), merge(2), trav(3), relab(4) or epil(5)",metavar="processing_step_end",default=5)
-    parser.add_option("-s", "--sub",dest="submission_command", help="source, qsub or qsub_debug", metavar="submission_command", default="qsub")
-    parser.add_option("-S", "--slots",dest="num_slots", help="# of cluster slots per 1 job (default=1)", metavar="num_slots", default=1)
-    parser.add_option("-v", "--verbose",action="store_true",dest="verbose",help="increase the verbosity level of output",default=False)
-    parser.add_option("-w", "--nwid",   dest="nwid", help="# of subsections for processing a fragment in x (width) direction", metavar="nwid",  default="1")
-    parser.add_option("-X", "--nx",  dest="nx",  help="# of image fragments in x direction", metavar="nx", default=1)
-    parser.add_option("-Y", "--ny",  dest="ny",  help="# of image fragments in y direction", metavar="ny", default=1)
-    parser.add_option("-x", "--dx",  dest="dx",  help="# of scans for fragment overlap in x direction", metavar="dx", default=50)
-    parser.add_option("-y", "--dy",  dest="dy",  help="# of scans for fragment overlap in y direction", metavar="dy", default=50)
-    parser.add_option("-z", "--zmin",dest="zmin",help="min z-layer to be processed", metavar="zmin", default=0)
-    parser.add_option("-Z", "--zmax",dest="zmax",help="max z-layer to be processed", metavar="zmax", default=sys.maxint)
-    
-    return parser
 
 # -----------------------------------------------------------------------
 
@@ -162,59 +139,15 @@ def get_data_dimensions(input_data, input_type, options):
 
 # ----------------------------------------------------------------------
 
-# Given node id, determine z-layer id, ymin, ymax, xmin and xmax
-
-def map_node_to_xyz(input_dim, options):
-    z_range = range(max(0,           int(options.zmin)),\
-                    min(input_dim[2],int(options.zmax)))
-    y_range = range(0, int(options.ny))
-    x_range = range(0, int(options.nx))
-
-    y_size = int(round(float(input_dim[0])/float(options.ny)))
-    x_size = int(round(float(input_dim[1])/float(options.nx)))
-    if options.verbose:
-        print "y_size=", y_size, " x_size=", x_size
-    if y_size <= 2*int(options.dy):
-        print "y overlap ", options.dy, " exceeds half of y_size ", y_size
-        sys.exit()
-    if x_size <= 2*int(options.dx):
-        print "x overlap ", options.dx, " exceeds half of x_size ", x_size
-        sys.exit()
-    dict_node_xyz = {}
-    node = 0
-    for y in y_range:
-        if y == 0:
-            ymin =  0
-            ymax =       y_size + int(options.dy)
-        elif y > 0 and y < max(y_range):
-            ymin =  y   *y_size - int(options.dy)
-            ymax = (y+1)*y_size + int(options.dy) 
-        else:
-            ymin =  y   *y_size - int(options.dy)
-            ymax =  input_dim[0]
-        for x in x_range:
-            if x == 0:
-                xmin =  0
-                xmax =       x_size + int(options.dx)
-            elif x > 0 and x < max(x_range):
-                xmin =  x   *x_size - int(options.dx)
-                xmax = (x+1)*x_size + int(options.dx)
-            else:
-                xmin =  x   *x_size - int(options.dx)
-                xmax =  input_dim[1]
-            for z in z_range:  
-                node += 1
-                dict_node_xyz[node] = \
-                    [y, ymin, ymax, x, xmin, xmax, z]
-    return (node, dict_node_xyz)
-
-# ----------------------------------------------------------------------
-
 # Genarate overgal matrix between segmented fragments   
 
 def create_generate_matrices_job(outfolderpath, \
                             input_data, input_type, input_dim, \
                             num_nodes, input_label, options):
+
+    zmin = max(0,            int(options.zmin))
+    zmax = min(input_dim[2], int(options.zmax))
+
     generate_matrices_script_path = \
         os.path.join(outfolderpath, "GenerateMatrices_script_ms3." +\
                      input_label + ".sh")
@@ -229,7 +162,7 @@ def create_generate_matrices_job(outfolderpath, \
         "    '"+ input_data + "' " + " file -n $SGE_TASK_ID " + \
         " -X " + str(options.nx)   + " -x " + str(options.dx) + \
         " -Y " + str(options.ny)   + " -y " + str(options.dy) + \
-        " -z " + str(options.zmin) + " -Z " + str(options.zmax) +\
+        " -z " + str(zmin)         + " -Z " + str(zmax) +\
         " -L " + str(input_dim[0]) + " -W " + str(input_dim[1]) +\
         " -H " + str(input_dim[2])
     if options.verbose:
@@ -237,7 +170,9 @@ def create_generate_matrices_job(outfolderpath, \
     if options.debug:
         command_matrices += " -D "
     command_matrices    += "\n"
-    scr.write(command_matrices)   
+    scr.write(command_matrices)  
+    if options.verbose:
+        print "In create_generate_matrices_job: command=", command_matrices 
     if not options.debug:
         scr.write("%s '%s' \n" % tuple(["rm -f ", \
                   generate_matrices_script_path]))
@@ -524,18 +459,22 @@ if __name__ == "__main__":
 #   5) produce ouput (in HDF5 or other format)
 
     parser = optparse.OptionParser(usage=usage, version="%%prog ")
-    parser = fusion3d_command_line_parser(parser)
+    parser = MS_Options.Fusion3D_command_line_parser(parser)
     (options, args) = parser.parse_args()
 
     if len(args) == 1:
         input_data = args[0]
+        if not os.path.exists(input_data):
+            sys.exit("\nInput data is not found")
         input_type = get_input_type(input_data, options)
+
         if input_type == 'DVID':
             input_label = "ms3_DVID"
         elif input_type == "directory":
-            input_label = "ms3_" + ntpath.split(input_data)[1][4:]
+            input_label = "ms3_" + os.path.basename(input_data)[4:]
         else:
-            input_label = "ms3_" + ntpath.split(input_data)[1].split('.')[0][4:]
+            input_label = "ms3_" + os.path.basename(input_data).split('.')[0][4:]
+
         if input_type in ["file", "directory", "DVID"]:
             if options.verbose and int(options.node) == 0:
                 print "Input type=", input_type
@@ -545,7 +484,7 @@ if __name__ == "__main__":
             sys.exit(2)         
         input_dim = get_data_dimensions(input_data, input_type, options)
         num_nodes, dict_node_xyz = \
-            map_node_to_xyz(input_dim, options)
+            MS_Dict.map_node_to_xyz(input_dim, input_label, ".txt", options)
         if options.verbose:
             print "Input data dimensions: ", input_dim, " num_nodes=", num_nodes
             print "\ninput_label=", input_label   

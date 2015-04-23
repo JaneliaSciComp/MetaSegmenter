@@ -42,67 +42,72 @@ function [] = MS_S2D_MergeImageFragments(dir, nf0, df0, verbose0, ...
             end
         end
         im = imread(varargin{i});
-        disp(['size(im)=' num2str(size(im))]);
+        disp(['i=' num2str(i) ' size(im)=' num2str(size(im))]);
         if i == 1
             if strcmp(dir, 'x')
-                ysize = size(im, 1);
-                xsize = size(im, 2) - df;
                 dir
                 nf
                 size(im, 2)
                 df
-                xsize
-                Xsize = int32(str2double(Xsize0));         
-                Xsize
-                disp(['Xsize=' num2str(Xsize)]);
+                Xsize = int32(str2double(Xsize0));
+                ysize = size(im, 1);
                 Ysize = ysize;
-                Ysize
-                mx    = 2*df;
-                my    = ysize;
-                R     = uint8(zeros(my, mx));
-                M1    = uint8(zeros(my, mx));
-                Ones  = uint8(ones( my, mx));
-                for j=1:mx
-                    R(:,j) = randi(mx, my, 1); % column of size my containing random integers 1:mx
-                end
-                for j=2:mx
-                    Rj = R(:,j);
-                    Mj = M1(:,j);
-                    Mj(Rj >= j) = 1;
-                    M1(:,j) = Mj;                 
-                end
-                M0 = Ones - M1;
+                disp(['Xsize=' num2str(Xsize) ' Ysize=' num2str(Ysize)]);
                 output_image = uint8(zeros(Ysize, Xsize));
-                output_image(1:ysize, 1:(xsize+df)) = im;
                 disp(['size(output_image)=' num2str(size(output_image))]);
+                if num_input_files == 1
+                    output_image = im
+                else % num_input_files > 1
+                    xsize = size(im, 2) - df;
+                    xsize
+                    mx    = 2*df;
+                    my    = ysize;
+                    output_image(1:ysize, 1:(xsize+df)) = im;
+                    R     = uint8(zeros(my, mx));
+                    M1    = uint8(zeros(my, mx));
+                    Ones  = uint8(ones( my, mx));
+                    for j=1:mx
+                        R(:,j) = randi(mx, my, 1); % column of size my containing random integers 1:mx
+                    end
+                    for j=2:mx
+                        Rj = R(:,j);
+                        Mj = M1(:,j);
+                        Mj(Rj >= j) = 1;
+                        M1(:,j) = Mj;                 
+                    end
+                    M0 = Ones - M1;
+                end
             else % dir == y
-                disp(['i=' num2str(i) ' size(im)=' num2str(size(im))]);
-                ysize = size(im, 1) - df;
-                xsize = size(im, 2);
                 dir
                 nf
                 size(im, 1)
                 df
-                ysize
+                xsize = size(im, 2);
                 Xsize = xsize;
-                Ysize = int32(str2double(Ysize0));           
-                mx    = xsize;
-                my    = 2*df;
-                R     = uint8(zeros(my, mx));
-                M1    = uint8(zeros(my, mx));
-                Ones  = uint8(ones( my, mx));
-                for j=1:my
-                    R(j,:) = randi(my, mx, 1)'; % row of size mx containing random integers 1:my
-                end
-                for j=2:my
-                    Rj = R(j,:);
-                    Mj = M1(j,:);
-                    Mj(Rj >= j) = 1;
-                    M1(j,:) = Mj;
-                end
-                M0 = Ones - M1;
+                Ysize = int32(str2double(Ysize0));
                 output_image = uint8(zeros(Ysize, Xsize));
-                output_image(1:(ysize+df), :) = im;
+                if num_input_files == 1
+                    output_image = im;
+                else
+                    ysize = size(im, 1) - df;
+                    ysize
+                    output_image(1:(ysize+df), :) = im;
+                    mx    = xsize;
+                    my    = 2*df;
+                    R     = uint8(zeros(my, mx));
+                    M1    = uint8(zeros(my, mx));
+                    Ones  = uint8(ones( my, mx));
+                    for j=1:my
+                        R(j,:) = randi(my, mx, 1)'; % row of size mx containing random integers 1:my
+                    end
+                    for j=2:my
+                        Rj = R(j,:);
+                        Mj = M1(j,:);
+                        Mj(Rj >= j) = 1;
+                        M1(j,:) = Mj;
+                    end
+                    M0 = Ones - M1;
+                end
             end
         else % Merge current fragment with the output image
             if strcmp(dir, 'x')
@@ -149,12 +154,17 @@ function [] = MS_S2D_MergeImageFragments(dir, nf0, df0, verbose0, ...
         % Produce and output labels image
         disp(['size(output_image_bw)=' num2str(size(output_image_bw))]);
         seg_output_name = [ output_name(1:numel(output_name)-6) 'Seg.png'];
+        disp(' ');
+        disp(['...generating file ' seg_output_name ]);
         L = MS_S2D_GenerateLabelsMatrix(output_image_bw, verbose);                  
-        disp(['size(L)=' num2str(size(L)) ' class(L)='  num2str(class(L(1,1)))]);
-        imwrite(uint16(round(mat2gray(L)*65535)), seg_output_name);
+        disp(['size(L)=' num2str(size(L)) ' class(L)='  num2str(class(L(1,1))) ' max(L)=' num2str(max(L))]);
+%       imwrite(uint16(round(mat2gray(L)*65535)), seg_output_name);
+        imwrite(L, seg_output_name);
 
         % Produce and output RGB segmentattion image
         rgb_output_name = [ output_name(1:numel(output_name)-6) 'RGB.png'];
+        disp(' ');
+        disp(['...generating file ' rgb_output_name ]);
         Lrgb = label2rgb(L, 'jet', 'w', 'shuffle');
         disp('');
         disp(['size(Lrgb)=' num2str(size(Lrgb)) ' class(Lrgb)='  class(Lrgb(1,1,1))]);

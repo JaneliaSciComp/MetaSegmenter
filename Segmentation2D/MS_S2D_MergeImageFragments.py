@@ -10,27 +10,12 @@ import os
 import sys, re 
 import optparse
 
+import MS_Dict
+import MS_Options
+
 ms_home = os.environ['MS_HOME']
 ms_data = os.environ['MS_DATA']
 ms_temp = os.environ['MS_TEMP']
-
-# -----------------------------------------------------------------------
-
-def merge_command_line_parser(parser):
-    parser.add_option("-c", "--compile",action="store_true",dest="compile",help="compile Matlab code",metavar="compile",default=False)
-    parser.add_option("-d", "--direction", dest="dir", help="merge direction: x or y", metavar="dir", default="")
-    parser.add_option("-D", "--debug",dest="debug",help="debugging mode; don't delete shell scripts",action="store_true",default=False)
-    parser.add_option("-e", "--executable", dest="executable", help="name of matlab executable", metavar="executable", default="MS_S2D_MergeImageFragments")
-    parser.add_option("-o", "--out_folder", dest="out_folder", help="where to place executable", metavar="out_folder", default=ms_home + "/Bin")
-    parser.add_option("-s", "--submission_command", dest="submission_command", help="source, qsub or qsub_debug", metavar="submission_command", default="qsub")
-    parser.add_option("-v", "--verbose",action="store_true",dest="verbose",help="increase the verbosity level of output",default=False)
-    parser.add_option("-X", "--nx",  dest="nx",  help="# of subsections in x direction", metavar="nx", default=1)
-    parser.add_option("-Y", "--ny",  dest="ny",  help="# of subsections in y direction", metavar="ny", default=1)
-    parser.add_option("-x", "--dx",  dest="dx",  help="# of scans for image overlap in x direction", metavar="dx", default=50)
-    parser.add_option("-y", "--dy",  dest="dy",  help="# of scans for image overlap in y direction", metavar="dy", default=50)
-    parser.add_option("-z", "--zmin",dest="zmin",help="# of subsections in z direction", metavar="zmin", default=0)
-    parser.add_option("-Z", "--zmax",dest="zmax",help="# of subsections in z direction", metavar="zmax", default=sys.maxint)      
-    return parser
 
 # -----------------------------------------------------------------------
 
@@ -59,8 +44,12 @@ def process_inputs_xmerge(input_label, xdim, ydim, node, dict_nodes_xmerge, opti
     ymax        = dict_nodes_xmerge[node][2]
     z           = dict_nodes_xmerge[node][3]
 
-    output_path = os.path.join(ms_temp, \
-        input_label + "_y" + str(y+1) + "_z" + str(z+1) + "_BW.png")
+    if options.ny > 1:
+        output_path = os.path.join(ms_temp, \
+            input_label + "_y" + str(y+1) + "_z" + str(z+1) + "_BW.png")
+    else:
+        output_path = os.path.join(ms_temp, \
+            input_label +                   "_z" + str(z+1) + "_BW.png")
     executable_path = os.path.join(ms_home, "Bin", options.executable)
     command_xmerge = executable_path + " x " + str(options.nx)      + " " +\
                      str(options.dx) + "   " + str(options.verbose) + " " +\
@@ -118,7 +107,7 @@ def process_inputs_ymerge(input_label, xdim, ydim, node, dict_nodes_ymerge, opti
 def process_inputs_zmerge(zdim, input_label, node, dict_nodes_zmerge, options):
     node      = int(node)
     match_str0 = dict_nodes_zmerge[node] 
-    match_str  = match_str0 + "$"
+    match_str  = input_label + '*' + match_str0 + "$"
 
     output_path = os.path.join(ms_data, \
         input_label + "_" + match_str0.split(".")[0] + ".h5")
@@ -149,64 +138,6 @@ def process_inputs_zmerge(zdim, input_label, node, dict_nodes_zmerge, options):
 
 # ----------------------------------------------------------------------
 
-def map_nodes_xmerge(xdim, ydim, zdim, options):
-    print "options.zmin=", options.zmin, " options.zmax=", options.zmax, " zdim=", zdim
-    z_range = range(max(0,   int(options.zmin)),\
-                    min(zdim,int(options.zmax)))
-    print "z_range=", z_range
-    y_range = range(0, int(options.ny))
-
-    x_size = int(round(float(xdim)/float(options.nx)))
-    y_size = int(round(float(ydim)/float(options.ny)))
-    if x_size <= 2*int(options.dx):
-        print "\nx overlap ", options.dx, " exceeds half of x_size ", x_size
-        sys.exit(2)
-    dict_nodes_xmerge = {}
-    node = 0
-    for y in y_range:
-        if y == 0:
-            ymin =  0
-            ymax =       y_size + int(options.dy)
-        elif y > 0 and y < max(y_range):
-            ymin =  y   *y_size - int(options.dy)
-            ymax = (y+1)*y_size + int(options.dy)
-        else:
-            ymin =  y   *y_size - int(options.dy)
-            ymax =  ydim             
-        for z in z_range:
-            node += 1
-            dict_nodes_xmerge[node] = [y, ymin, ymax, z]
-    return (node, dict_nodes_xmerge)
-
-# ----------------------------------------------------------------------
-
-def map_nodes_ymerge(ydim, zdim, options):
-    z_range = range(max(0,   int(options.zmin)),\
-                    min(zdim,int(options.zmax)))
-
-    y_size = int(round(float(ydim)/float(options.ny)))
-    if y_size <= 2*int(options.dy):
-        print "\ny overlap ", options.dy, " exceeds half of y_size ", y_size
-        sys.exit()
-    dict_nodes_ymerge = {}
-    node = 0
-    for z in z_range:
-        node += 1
-        dict_nodes_ymerge[node] = z 
-    return (node, dict_nodes_ymerge)
-
-# ----------------------------------------------------------------------
-
-def map_nodes_zmerge(zdim, options):
-
-    dict_nodes_zmerge = {}
-    dict_nodes_zmerge[1] = "BW.png"
-    dict_nodes_zmerge[2] = "Seg.png"
-    dict_nodes_zmerge[3] = "RGB.png"
-    return (3, dict_nodes_zmerge)
-
-# ----------------------------------------------------------------------
-
 def parse_option(option):
     if re.search("-", option) and re.search(",", option):
         sys.exit("Please, use either dash or comma in specifying " + option + "\n")
@@ -227,7 +158,7 @@ if __name__ == "__main__":
     usage = "\nUsage: %prog input_label merge_dir xdim ydim zdim node [options (-h to list)]\n"
 
     parser = optparse.OptionParser(usage=usage, version="%%prog ")
-    parser = merge_command_line_parser(parser)
+    parser = MS_Options.MergeImageFragments_command_line_parser(parser)
     (options, args) = parser.parse_args()
 
     if options.compile:
@@ -235,13 +166,13 @@ if __name__ == "__main__":
     if len(args) == 6:      
         input_label, mdir, xdim, ydim, zdim, node = args[0:6]
         if mdir == 'x':
-            num_nodes, dict_nodes_xmerge = map_nodes_xmerge(xdim, ydim, zdim, options)
+            num_nodes, dict_nodes_xmerge = MS_Dict.map_nodes_xmerge(xdim, ydim, zdim, options)
             process_inputs_xmerge(input_label, xdim, ydim, node, dict_nodes_xmerge, options)
         elif mdir == 'y':
-            num_nodes, dict_nodes_ymerge = map_nodes_ymerge(ydim, zdim, options)
+            num_nodes, dict_nodes_ymerge = MS_Dict.map_nodes_ymerge(ydim, zdim, options)
             process_inputs_ymerge(input_label, xdim, ydim, node, dict_nodes_ymerge, options)
         elif mdir == 'z':
-            num_nodes, dict_nodes_zmerge = map_nodes_zmerge(zdim, options)
+            num_nodes, dict_nodes_zmerge = MS_Dict.map_nodes_zmerge(zdim, options)
             process_inputs_zmerge(zdim, input_label, node, dict_nodes_zmerge, options)
         else:
             print "Unsapported merge direction ", mdir

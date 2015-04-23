@@ -39,7 +39,7 @@ function Ibwn = MS_S2D_SegmentNeurons(inputName,fracBlack,fracBlack2,varargin)
     im_size = size(Igr);
     Ibwn = zeros(im_size(1),im_size(2));
     subsections = MS_S2D_DivideImageIntoSubsections(im_size, options);
-    M_thr = MS_S2D_GetThresholdIntensity(Igr, fracBlack, subsections, options);           
+    M_thr = MS_S2D_GetThresholdIntensity(Igr, 1, subsections, options);           
     Ibwn = segment_neurons(Igr, M_thr, options);
     imwrite(Ibwn, 'Ibwn_MS_S2D_SegmentNeurons.tiff');
     Ibwn = MS_S2D_AddBoundaryPadding(Ibwn, 0);

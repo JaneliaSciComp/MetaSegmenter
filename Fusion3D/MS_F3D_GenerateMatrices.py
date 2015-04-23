@@ -11,83 +11,14 @@ import h5py
 from pydvid import voxels, general
 from   zibopt import scip
 
+import MS_Dict
+import MS_Options
+
 ms_home = os.environ['MS_HOME']
 ms_data = os.environ['MS_DATA']
 ms_temp = os.environ['MS_TEMP']
 
-# -----------------------------------------------------------------------
-
-def get_data_command_line_parser(parser):
-    parser.add_option("-d", "--dataset", dest="dataset", help="dataset in DVID store",default='test1')
-    parser.add_option("-D", "--debug",dest="debug", help="debugging; don't delete shell scripts", action="store_true", default=False)
-    parser.add_option("-i", "--uuid",dest="uuid",help="uuid for DVID store",default='fe7')
-    parser.add_option("-L", "--length", dest="ydim", help="y-size (length) of an image", metavar="ydim", default="")
-    parser.add_option("-H", "--height", dest="zdim", help="z-size (height, or # layers) of an image stack", metavar="zdim", default="")
-    parser.add_option("-n", "--node",   dest="node", help="id of the cluster node to be used", metavar="node",  default=0)
-    parser.add_option("-o", "--output_path",dest="output_path",help="output path",metavar="output_path",default="")
-    parser.add_option("-r", "--uri",dest="uri",help="uri for DVID store",default='/api/repo/fe7/instance')
-    parser.add_option("-v", "--verbose",action="store_true",dest="verbose",help="increase the verbosity level of output",default=False)
-    parser.add_option("-W", "--width", dest="xdim", help="x-size (width) of an image", metavar="xdim", default="")
-    parser.add_option("-X", "--nx",  dest="nx",  help="# of subsections in x direction (default=1)", metavar="nx", default=1)
-    parser.add_option("-Y", "--ny",  dest="ny",  help="# of subsections in y direction (default=1)", metavar="ny", default=1)
-    parser.add_option("-x", "--dx",  dest="dx",  help="# of scans for image overlap in x direction", metavar="dx", default=50)
-    parser.add_option("-y", "--dy",  dest="dy",  help="# of scans for image overlap in y direction", metavar="dy", default=50)
-    parser.add_option("-z", "--zmin",dest="zmin",help="# of subsections in z direction", metavar="zmin", default=0)
-    parser.add_option("-Z", "--zmax",dest="zmax",help="# of subsections in z direction", metavar="zmax", default=sys.maxint)
-    return parser
-
 # ----------------------------------------------------------------------
-
-# Given node id, determine z-layer id, ymin, ymax, xmin and xmax
-def map_node_to_xyz(input_dim, options):
-    z_range = range(max(0,           int(options.zmin)),\
-                    min(input_dim[2],int(options.zmax)))
-    y_range = range(0, int(options.ny))
-    x_range = range(0, int(options.nx))
-
-    y_size = int(round(float(input_dim[0])/float(options.ny)))
-    x_size = int(round(float(input_dim[1])/float(options.nx)))
-    if options.verbose:
-        print "y_size=", y_size, " x_size=", x_size
-    if y_size <= 2*int(options.dy):
-        print "y overlap ", options.dy, " exceeds half of y_size ", y_size
-        sys.exit()
-    if x_size <= 2*int(options.dx):
-        print "x overlap ", options.dx, " exceeds half of x_size ", x_size
-        sys.exit()
-    dict_node_xyz = {}
-    node = 0
-    for y in y_range:
-        if y == 0:
-            ymin =  0
-            ymax =       y_size 
-            if options.ny > 1:
-                ymax =   y_size + int(options.dy)
-        elif y > 0 and y < max(y_range):
-            ymin =  y   *y_size - int(options.dy)
-            ymax = (y+1)*y_size + int(options.dy)
-        else:
-            ymin =  y   *y_size - int(options.dy)
-            ymax =  input_dim[0]
-        for x in x_range:
-            if x == 0:
-                xmin =  0
-                xmax =       x_size
-                if options.nx > 1:
-                    xmax =   x_size + int(options.dx)
-            elif x > 0 and x < max(x_range):
-                xmin =  x   *x_size - int(options.dx)
-                xmax = (x+1)*x_size + int(options.dx)
-            else:
-                xmin =  x   *x_size - int(options.dx)
-                xmax =  input_dim[1]
-            for z in z_range:
-                node += 1
-                dict_node_xyz[node] = \
-                    [y, ymin, ymax, x, xmin, xmax, z, z+1]
-    return (node, dict_node_xyz)
-
-# -----------------------------------------------------------------------
 
 def generate_overlap_matrix(image_fragment1, image_fragment2, options):
     fragment_matrix1 = numpy.matrix(image_fragment1)      
@@ -290,7 +221,9 @@ def process_inputs(input_data, input_type, dict_node_xyz, options):
     if options.verbose:
         print "node=", node, " type=", type(node)
     if node > 0:
-        y, ymin, ymax, x, xmin, xmax, zmin, zmax = dict_node_xyz[node]
+        y, ymin, ymax, x, xmin, xmax, z = dict_node_xyz[node]
+        zmin = z
+        zmax = z + 1
     else:
         ymin = 0
         ymax = int(options.ydim)
@@ -300,8 +233,8 @@ def process_inputs(input_data, input_type, dict_node_xyz, options):
         zmax = int(options.zmax)
 
     if options.verbose:
-        print "    node=", node, "y, ymin, ymax, x, xmin, xmax, zmin, zmax=",\
-              [y, ymin, ymax, x, xmin, xmax, zmin, zmax]
+        print "    node=", node, "y, ymin, ymax, x, xmin, xmax, z=",\
+              [y, ymin, ymax, x, xmin, xmax, z]
 
     # Extract image data
     image_fragment1, image_fragment2 = \
@@ -327,14 +260,22 @@ if __name__ == "__main__":
     usage = "\nUsage: %prog input_data input_type [ options ]\n"
 
     parser = optparse.OptionParser(usage=usage, version="%%prog ")
-    parser = get_data_command_line_parser(parser)
+    parser = MS_Options.GenerateMatrices_command_line_parser(parser)
     (options, args) = parser.parse_args()
     
     if len(args) == 2:
         input_data, input_type = args
         input_dim = [int(options.ydim), int(options.xdim), int(options.zdim)]
+
+        if input_type == 'DVID':
+            input_label = "ms3_DVID"
+        elif input_type == "directory":
+            input_label = "ms3_" + os.path.basename(input_data)[4:]
+        else:
+            input_label = "ms3_" + os.path.basename(input_data).split('.')[0][4:]
+
         num_nodes, dict_node_xyz = \
-            map_node_to_xyz(input_dim, options)
+            MS_Dict.map_node_to_xyz(input_dim, input_label, ".txt", options)
         if options.verbose:
             print "In MS_F3D_GenerateOverlapMatrix.py: num_nodes=", num_nodes
         if len(options.output_path) == 0 and len(options.node) == 0:

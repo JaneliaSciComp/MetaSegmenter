@@ -11,19 +11,7 @@ import numpy
 import sys, os, optparse
 from scipy import misc
 
-# ----------------------------------------------------------------------
-
-def command_line_parser(parser):
-    parser.add_option("-a","--alpha", dest="alpha", help="smoothing coefficient",  metavar="alpha", default="0.01")
-    parser.add_option("-c","--chunked",action="store_true",dest="chunked",help="each layer is chunk",metavar="chunked",default=False)
-    parser.add_option("-m","--match_str", dest="match_string",help="match str. for input file names", metavar="mstr",default="")
-    parser.add_option("-o","--output_name",dest="output_name",help="name of the output HDF5 file", metavar="out", default="output.h5")
-    parser.add_option("-t","--type", dest="output_type", help="output type (='data','labels' or 'mask')", metavar="ot", default="")
-    parser.add_option("-v","--verbose",action="store_true",dest="verbose",help="increase verbosity of output", default=False)
-    parser.add_option("-u","--unmatch_str",dest="unmatch_string",help="unmatch str. for input file names",metavar="unmstr",default="")
-    parser.add_option("-z", "--zmin",dest="zmin",help="min z-layer to be processed", metavar="zmin", default=0)
-    parser.add_option("-Z", "--zmax",dest="zmax",help="max z-layer to be processed", metavar="zmax", default=sys.maxint)
-    return parser
+import MS_Options
 
 # ----------------------------------------------------------------------
 
@@ -222,12 +210,10 @@ if __name__ == "__main__":
     %prog input_file(s) [options (-h to list)]"
 
     parser = optparse.OptionParser(usage=usage, version="%%prog ")
-    parser = command_line_parser(parser)
+    parser = MS_Options.CreateH5Stack_command_line_parser(parser)
     (options, args) = parser.parse_args()
 
     # parse input
-    print "len(sys.argv)=", len(sys.argv), "sys.argv=", sys.argv, " len(args)=", len(args)
-    print "args=", args
     if len(args) == 1:
         input_dir = args[0]
     else:
@@ -241,9 +227,15 @@ if __name__ == "__main__":
     h5_file_name = options.output_name
     print "input_dir=", input_dir, " match_string=", options.match_string, " unmatch_string=", options.unmatch_string
     input_files = []
+    # Allow using match_string as a wild card
+    match_string_list = options.match_string.split('*')
     for file in os.listdir(input_dir):
-        if re.search(options.match_string, file) and \
-                (len(options.unmatch_string) == 0 or not re.search(options.unmatch_string, file)):
+        match = True
+        for m in match_string_list:
+            if not re.search(m, file):
+                match = False
+        if match and \
+           (len(options.unmatch_string) == 0 or not re.search(options.unmatch_string, file)):
             input_files.append(file)
     sorted_input_files = sorted(input_files)
     imin = max(0, int(options.zmin))

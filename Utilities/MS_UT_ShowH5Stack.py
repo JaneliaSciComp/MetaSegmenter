@@ -46,6 +46,7 @@ while layer_id <= num_layers:
 
     plot_3 = 0
     if len(image_data.shape) == 2:
+        print "max=", numpy.amax(image_data), " min=", numpy.amin(image_data)
         plt.imshow(image_data, cmap = cm.Greys_r) # show as grayscale image
         plt.show()
     elif len(image_data.shape) == 3:
@@ -62,6 +63,7 @@ while layer_id <= num_layers:
             show()
         else:
             image_data1 = image_data[:,:,1]
+            print "max=", numpy.amax(image_data1), " min=", numpy.amin(image_data1)
             plt.imshow(image_data1) 
             plt.show()
     else:

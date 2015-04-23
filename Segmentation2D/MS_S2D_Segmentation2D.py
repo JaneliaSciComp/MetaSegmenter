@@ -18,40 +18,12 @@ from scipy import misc
 import matplotlib
 from PIL import Image
 
+import MS_Dict 
+import MS_Options
+
 ms_home = os.environ['MS_HOME'] # where source code is located
 ms_data = os.environ['MS_DATA'] # dir for initial input data and final output 
 ms_temp = os.environ['MS_TEMP'] # dir for intermediate data files
-
-# ----------------------------------------------------------------------
-
-def segmentation_command_line_parser(parser):
-    parser.add_option("-A", "--project",dest="project_code",help="code to be used with qsub",metavar="project_code", default="flyTEM")
-    parser.add_option("-c", "--compile",action="store_true",dest="compile",help="compile Matlab file",metavar="compile",default=False)
-    parser.add_option("-C", "--compile_all",action="store_true",dest="compile_all", help="compile all Matlab code", metavar="compile_all", default=False)
-    parser.add_option("-D", "--debug",dest="debug",help="don't delete intermediate outputs", action="store_true", default=False)
-    parser.add_option("-e", "--executable",dest="executable",help="executable",metavar="executable",default="MS_S2D_Segmentation2D")
-    parser.add_option("-f", "--fracBlack", dest="fracBlack", help="fracBlack for detecting neurons (default=automatic)",metavar="fracBlack", default=None)
-    parser.add_option("-F", "--fracBlack2",dest="fracBlack2",help="fracBlack for detect. dark str.",metavar="fracBlack2",default=None)
-    parser.add_option("-l", "--nlen",   dest="nlen", help="# of subsections for processing a fragment in y (length) direction",metavar="nlen", default="1")
-    parser.add_option("-m", "--maxsize",dest="msize", help="# of subsections for processing a fragment in y (length) direction",metavar="nlen",default=sys.maxint)
-    parser.add_option("-n", "--node",   dest="node", help="id of the cluster node to be used", metavar="node",  default=0)
-    parser.add_option("-o", "--output_folder",dest="output_folder",help="output folder",metavar="output_folder",default=ms_data)
-    parser.add_option("-p", "--processing_start",dest="processing_start",help="start processing from segm(=1),xmerg(=2),ymerg(=3),or epilog(=4) ",metavar="processing_start",default=1)
-    parser.add_option("-P", "--processing_end",dest="processing_end",help="complete processing at step segm(=1),xmerg(=2),ymerg(=3),or epilog(=4) ",metavar="processing_end",default=4)
-    parser.add_option("-s", "--sub",dest="submission_command", help="source, qsub or qsub_debug", metavar="submission_command", default="qsub")
-    parser.add_option("-S", "--slots",dest="num_slots", help="# of cluster slots per 1 job (default=1)", metavar="num_slots", default=1)
-    parser.add_option("-U", "--unprocessed",action="store_true",dest="unprocessed", help="reprocess only the data for which an output file does not exist",default=False)
-    parser.add_option("-v", "--verbose",action="store_true",dest="verbose",help="increase the verbosity level of output",default=False)
-    parser.add_option("-w", "--nwid",   dest="nwid", help="# of subsections for processing a fragment in x (width) direction", metavar="nwid",  default="1")
-    parser.add_option("-X", "--nx",  dest="nx",  help="# of image fragments in x direction", metavar="nx", default=1)
-    parser.add_option("-Y", "--ny",  dest="ny",  help="# of image fragments in y direction", metavar="ny", default=1)
-    parser.add_option("-x", "--dx",  dest="dx",  help="# of scans for fragment overlap in x direction", metavar="dx", default=50)
-    parser.add_option("-y", "--dy",  dest="dy",  help="# of scans for fragment overlap in y direction", metavar="dy", default=50)
-    parser.add_option("-z", "--zmin",dest="zmin",help="min z-layer to be processed", metavar="zmin", default=0)
-    parser.add_option("-Z", "--zmax",dest="zmax",help="max z-layer to be processed", metavar="zmax", default=sys.maxint)
-    
-    return parser
-
 
 # -----------------------------------------------------------------------
 
@@ -208,120 +180,16 @@ def get_data_dimensions(input_data, input_type, options):
 
 # ----------------------------------------------------------------------
 
-# Given node id, determine z-layer id, ymin, ymax, xmin and xmax
-
-def map_node_to_xyz(input_dim, input_label,options):
-    z_range = range(max(0,           int(options.zmin)),\
-                    min(input_dim[2],int(options.zmax)))
-    y_range = range(0, int(options.ny))
-    x_range = range(0, int(options.nx))
-
-    y_size = int(round(float(input_dim[0])/float(options.ny)))
-    x_size = int(round(float(input_dim[1])/float(options.nx)))
-    if options.verbose:
-        print "y_size=", y_size, " x_size=", x_size
-    if y_size <= 2*int(options.dy):
-        print "y overlap ", options.dy, " exceeds half of y_size ", y_size
-        sys.exit()
-    if x_size <= 2*int(options.dx):
-        print "x overlap ", options.dx, " exceeds half of x_size ", x_size
-        sys.exit()
-    dict_node_xyz = {}
-    node = 0
-    for y in y_range:
-        if y == 0:
-            ymin =  0
-            ymax =       y_size + int(options.dy)
-        elif y > 0 and y < max(y_range):
-            ymin =  y   *y_size - int(options.dy)
-            ymax = (y+1)*y_size + int(options.dy) 
-        else:
-            ymin =  y   *y_size - int(options.dy)
-            ymax =  input_dim[0]
-        for x in x_range:
-            if x == 0:
-                xmin =  0
-                xmax =       x_size + int(options.dx)
-            elif x > 0 and x < max(x_range):
-                xmin =  x   *x_size - int(options.dx)
-                xmax = (x+1)*x_size + int(options.dx)
-            else:
-                xmin =  x   *x_size - int(options.dx)
-                xmax =  input_dim[1]
-            for z in z_range:  
-                if not options.unprocessed:
-                    node += 1
-                    dict_node_xyz[node] = \
-                        [y, ymin, ymax, x, xmin, xmax, z]
-                else: # process only previously unprocessed data
-                    output_file = \
-                        os.path.join(ms_temp, input_label + "_y" + str(y+1) +\
-                                     "_x" + str(x+1) + "_z" + str(z+1) + \
-                                     "_BW.png")
-                    if not os.path.exists(output_file):
-                        node += 1
-                        dict_node_xyz[node] = \
-                            [y, ymin, ymax, x, xmin, xmax, z]
-                        if options.verbose:
-                            print "node=",node," missing output file=",output_file
-    return (node, dict_node_xyz)
-
-# ----------------------------------------------------------------------
-
-def map_nodes_xmerge(xdim, ydim, zdim, options):
-    z_range = range(max(0,   int(options.zmin)),\
-                    min(zdim,int(options.zmax)))
-    y_range = range(0, int(options.ny))
-
-    x_size = int(round(float(xdim)/float(options.nx)))
-    y_size = int(round(float(ydim)/float(options.ny)))
-    if x_size <= 2*int(options.dx):
-        print "\nx overlap ", options.dx, " exceeds half of x_size ", x_size
-        sys.exit(2)
-    dict_node_xmerge = {}
-    node = 0
-    for y in y_range:
-        if y == 0:
-            ymin = 0
-            ymax = y_size + int(options.dy)
-        elif y > 0 and y < max(y_range):
-            ymin = (y - 1)*y_size - int(options.dy)
-            ymax = (y - 1)*y_size + int(options.dy)
-        else:
-            ymin = (y - 1)*y_size - int(options.dy)
-            ymax = input_dim[0]
-        for z in z_range:
-            node += 1
-            dict_node_xmerge[node] = [y, ymin, ymax, z]
-    return (node, dict_node_xmerge)
-
-# ----------------------------------------------------------------------
-
-def map_nodes_ymerge(ydim, zdim, options):
-    z_range = range(max(0,   int(options.zmin)),\
-                    min(zdim,int(options.zmax)))
-
-    y_size = int(round(float(ydim)/float(options.ny)))
-    if y_size <= 2*int(options.dy):
-        print "\ny overlap ", options.dy, " exceeds half of y_size ", y_size
-        sys.exit()
-    dict_node_ymerge = {}
-    node = 0
-    for z in z_range:
-        node += 1
-        dict_node_ymerge[node] = z
-    return (node, dict_node_ymerge)
-
-# ----------------------------------------------------------------------
-
 # Extract fragment data and segment the fragment
 
 def create_data_extraction_and_segmentation_job(outfolderpath, \
                             input_data, input_type, input_dim, \
                             num_nodes, input_label, options):
     print "input_dim[2]=", input_dim[2], " options.zmin=", options.zmin, " options.zmax=", options.zmax
-    options.zmin = max(0,            int(options.zmin))
-    options.zmax = min(input_dim[2], int(options.zmax))
+
+    zmin = max(0,            int(options.zmin))
+    zmax = min(input_dim[2], int(options.zmax))
+
     fragment_segmentation_script_path = \
         os.path.join(outfolderpath, "Segmentation_script." +\
                      input_label + ".sh")
@@ -354,7 +222,7 @@ def create_data_extraction_and_segmentation_job(outfolderpath, \
         " -o '"+ ms_temp  + "' -n $SGE_TASK_ID  "   +\
         " -X " + str(options.nx)   + " -x " + str(options.dx) + \
         " -Y " + str(options.ny)   + " -y " + str(options.dx) + \
-        " -z " + str(options.zmin) + " -Z " + str(options.zmax) +\
+        " -z " + str(zmin)         + " -Z " + str(zmax) +\
         " -l " + options.nlen      + " -w " + options.nwid + \
         " -f " + my_fracBlack      + " -F " + my_fracBlack2           
     if options.unprocessed:
@@ -382,16 +250,17 @@ def create_data_extraction_and_segmentation_job(outfolderpath, \
 
 def create_merging_job(mdir, outfolderpath, input_data, input_type,\
                        input_dim, input_label, options):
-    options.zmin = max(0,            int(options.zmin))
-    options.zmax = min(input_dim[2], int(options.zmax))
+
+    zmin = max(0,            int(options.zmin))
+    zmax = min(input_dim[2], int(options.zmax))
     if mdir == 'x':
         num_nodes, dict_node_xmerge = \
-            map_nodes_xmerge(input_dim[1], input_dim[0], input_dim[2], options)
+            MS_Dict.map_nodes_xmerge(input_dim[1], input_dim[0], input_dim[2], options)
         if options.verbose:
             print "Number of x-merge nodes=", num_nodes
     elif mdir == 'y':
         num_nodes, dict_node_ymerge = \
-            map_nodes_ymerge(input_dim[0], input_dim[2], options)
+            MS_Dict.map_nodes_ymerge(input_dim[0], input_dim[2], options)
         if options.verbose:
             print "Number of y-merge nodes=", num_nodes
     elif mdir == 'z':
@@ -420,8 +289,8 @@ def create_merging_job(mdir, outfolderpath, input_data, input_type,\
                       + " " + str(input_dim[2]) + " $SGE_TASK_ID " \
                       + " -X " + str(options.nx)   \
                       + " -Y " + str(options.ny)   \
-                      + " -z " + str(options.zmin) \
-                      + " -Z " + str(options.zmax) 
+                      + " -z " + str(zmin) \
+                      + " -Z " + str(zmax) 
     if options.verbose:
         command_merge += " -v "
     if options.debug:
@@ -456,7 +325,7 @@ def submit_segmentation_job(segm_script_path, base_command, options):
     elif not options.submission_command == "none":
         os.system(command)
     if options.verbose and not options.submission_command == "none":
-        print "Submit segmentation job command=", command, "\nres=", res
+        print "Submit segmentation job command=", command, "\nres=", res, "\n"
 
     # Submit epilog script
     return jobid1            
@@ -481,7 +350,7 @@ def submit_xmerge_job(xmerge_script_path, base_command, jobid1, options):
         command += " " + xmerge_script_path
         os.system(command)
     if options.verbose and not options.submission_command == "none":
-        print "\nSubmit x-merge job command=", command, " res2=", res2
+        print "\nSubmit x-merge job command=", command, " res2=", res2, "\n"
         print "jobid2=", jobid2
     return jobid2
 
@@ -506,7 +375,7 @@ def submit_ymerge_job(ymerge_script_path, base_command, jobid2, options):
         command += " " + ymerge_script_path
         os.system(command)
     if options.verbose and not options.submission_command == "none":
-        print "\nSubmit y-merge job command=", command, " res3=", res3
+        print "\nSubmit y-merge job command=", command, " res3=", res3, "\n"
         print "jobid3=", jobid3
     return jobid3
 
@@ -545,13 +414,17 @@ def submit_array_jobs(segm_script_path,  \
         jid1 = submit_segmentation_job(segm_script_path, base_command, options)
 
     jid2 = 0
-    if int(options.processing_start) <= 2 and int(options.processing_end) >= 2:
+    if options.nx > 1 and int(options.processing_start) <= 2 and int(options.processing_end) >= 2:
         jid2 = submit_xmerge_job(xmerge_script_path,base_command,jid1, options)
 
+    if options.nx == 1:
+        jid2 = jid1
     jid3 = 0
-    if int(options.processing_start) <= 3 and int(options.processing_end) >= 3:
+    if options.nx > 1 and int(options.processing_start) <= 3 and int(options.processing_end) >= 3:
         jid3 = submit_ymerge_job(ymerge_script_path,base_command,jid2, options)
 
+    if options.ny == 1:
+        jid3 = jid2
     if int(options.processing_start) <= 4 and int(options.processing_end) >= 4:
         submit_epilog_job(epilog_script_path, base_command, jid3, options)
 
@@ -572,14 +445,14 @@ def process_input_data_high_level(input_data, input_type, input_dim, \
     else:
         segmentation_script_path = ""
 
-    if int(options.processing_start) <= 2:
+    if options.nx > 1 and int(options.processing_start) <= 2:
         fragment_xmerge_script_path = \
             create_merging_job('x', outfolderpath, input_data,\
                                input_type, input_dim, input_label, options)
     else:
         fragment_xmerge_script_path = ""
 
-    if int(options.processing_start) <= 3:
+    if options.ny > 1 and int(options.processing_start) <= 3:
         fragment_ymerge_script_path = \
             create_merging_job('y', outfolderpath, input_data,\
                                input_type, input_dim, input_label, options)
@@ -617,10 +490,32 @@ def process_input_data_low_level(dict_node_xyz, input_label,options):
     xmin = dict_node_xyz[node][4]
     xmax = dict_node_xyz[node][5]
     z    = dict_node_xyz[node][6]
-    input_file = os.path.join(ms_temp, input_label + "_y" + str(y+1) +\
-                              "_x" + str(x+1) + "_z" + str(z+1) + ".png")
-    output_file = os.path.join(ms_temp, input_label + "_y" + str(y+1) +\
-                              "_x" + str(x+1) + "_z" + str(z+1) + "_BW.png")
+    if options.verbose:
+        print "options.nx=", options.nx, " options.ny=", options.ny, \
+              "ymin=", ymin, " ymax=", ymax, \
+              "xmin=", xmin, " xmax=", xmax
+    if   int(options.nx) > 1 and int(options.ny) > 1:
+        input_file = os.path.join(ms_temp, input_label + "_y" + str(y+1) +\
+                                  "_x" + str(x+1) + "_z" + str(z+1) + ".png")
+        output_file = os.path.join(ms_temp, input_label + "_y" + str(y+1) +\
+                                  "_x" + str(x+1) + "_z" + str(z+1) + "_BW.png")
+    elif int(options.nx) == 1 and int(options.ny) > 1:
+        input_file = os.path.join(ms_temp, input_label + "_y" + str(y+1) +\
+                                                    "_z" + str(z+1) + ".png")
+        output_file = os.path.join(ms_temp, input_label + "_y" + str(y+1) +\
+                                                    "_z" + str(z+1) + "_BW.png")
+    elif int(options.nx) > 1 and int(options.ny) == 1:
+        input_file = os.path.join(ms_temp, input_label +                  \
+                                  "_x" + str(x+1) + "_z" + str(z+1) + ".png")
+        output_file = os.path.join(ms_temp, input_label +                  \
+                                  "_x" + str(x+1) + "_z" + str(z+1) + "_BW.png")
+    else:
+        input_file = os.path.join(ms_temp, input_label +                  \
+                                                    "_z" + str(z+1) + ".png")
+        output_file = os.path.join(ms_temp, input_label +                  \
+                                                    "_z" + str(z+1) + "_BW.png")
+    if options.verbose:
+        print "input_file=", input_file, "\noutput_file=", output_file
     my_fracBlack = str(options.fracBlack)
     if my_fracBlack == "None":
         my_fracBlack = "0"
@@ -641,6 +536,7 @@ def process_input_data_low_level(dict_node_xyz, input_label,options):
         data_shape = misc.imread(input_file).shape
         print "Input data shape=", data_shape
         print "low level command_segm=", command_segm
+        print "Writing segmented image to file", output_file 
     os.system(command_segm)
     if not options.debug:
         os.system(command_rm)
@@ -657,7 +553,7 @@ if __name__ == "__main__":
     3) coordinates of DVID subvolume: [xmin:xmax,ymin:ymax,zmin:zmax]"   
 
     parser = optparse.OptionParser(usage=usage, version="%%prog ")
-    parser = segmentation_command_line_parser(parser)
+    parser = MS_Options.Segmentation2D_command_line_parser(parser)
     (options, args) = parser.parse_args()
 
     if options.compile or options.compile_all:
@@ -679,7 +575,7 @@ if __name__ == "__main__":
         if options.verbose:
             print "Input data dimensions: ", input_dim
         num_nodes, dict_node_xyz = \
-            map_node_to_xyz(input_dim, input_label, options)
+            MS_Dict.map_node_to_xyz(input_dim, input_label, "_BW.png", options)
         if options.verbose:
             print "num_nodes=", num_nodes
             print "\nProcessing input data ..."

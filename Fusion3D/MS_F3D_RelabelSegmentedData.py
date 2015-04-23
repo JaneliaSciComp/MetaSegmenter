@@ -7,20 +7,11 @@ import numpy
 import h5py
 from PIL import Image 
 
+import MS_Options
+
 ms_home = os.environ['MS_HOME']
 ms_data = os.environ['MS_DATA']
 ms_temp = os.environ['MS_TEMP']
-
-# -----------------------------------------------------------------------
-
-def relabel_command_line_parser(parser):
-    parser.add_option("-D", "--debug",dest="debug", help="debugging; don't delete shell scripts", action="store_true", default=False)
-    parser.add_option("-n", "--node",   dest="node", help="id of the cluster node to be used", metavar="node",  default=0)
-    parser.add_option("-o", "--output_path",dest="output_path",help="output path",metavar="output_path",default="")
-    parser.add_option("-v", "--verbose",action="store_true",dest="verbose",help="increase the verbosity level of output",default=False)
-    parser.add_option("-z", "--zmin",dest="zmin",help="# of subsections in z direction", metavar="zmin", default=0)
-    parser.add_option("-Z", "--zmax",dest="zmax",help="# of subsections in z direction", metavar="zmax", default=sys.maxint)
-    return parser
 
 # -----------------------------------------------------------------------
 
@@ -112,7 +103,7 @@ if __name__ == "__main__":
     usage = "\nUsage: %prog input_data input_type [options (-h to list)]\n"
 
     parser = optparse.OptionParser(usage=usage, version="%%prog ")
-    parser = relabel_command_line_parser(parser)
+    parser = MS_Options.RelabelSegmentedData_command_line_parser(parser)
     (options, args) = parser.parse_args()
 
     if len(args) == 2:
