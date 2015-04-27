@@ -55,8 +55,8 @@ classdef MS_S2D_InputParser < inputParser
                 obj.defaultNumSubY   = num2str(obj.defaultNumSubY);
                 obj.defaultSubX      = num2str(obj.defaultSubX );        
                 obj.defaultSubY      = num2str(obj.defaultSubY );        
-                obj.defaultSectionX  = num2str(obj.defaultSectionX);
-                obj.defaultSectionY  = num2str(obj.defaultSectionY);
+                obj.defaultDX        = num2str(obj.defaultDX);          
+                obj.defaultDY        = num2str(obj.defaultDY);                
                 obj.defaultMaxSize   = num2str(obj.defaultMaxSize);
             end
 
