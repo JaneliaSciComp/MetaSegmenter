@@ -18,8 +18,8 @@ import imghdr
 import matplotlib
 from PIL import Image
 
-import MS_Dict
-import MS_Options
+import MS_LIB_Dict
+import MS_LIB_Options
 
 ms_home = os.environ['MS_HOME'] # where source code is located
 ms_data = os.environ['MS_DATA'] # dir for initial input data and final output 
@@ -459,7 +459,7 @@ if __name__ == "__main__":
 #   5) produce ouput (in HDF5 or other format)
 
     parser = optparse.OptionParser(usage=usage, version="%%prog ")
-    parser = MS_Options.Fusion3D_command_line_parser(parser)
+    parser = MS_LIB_Options.Fusion3D_command_line_parser(parser)
     (options, args) = parser.parse_args()
 
     if len(args) == 1:
@@ -484,7 +484,7 @@ if __name__ == "__main__":
             sys.exit(2)         
         input_dim = get_data_dimensions(input_data, input_type, options)
         num_nodes, dict_node_xyz = \
-            MS_Dict.map_node_to_xyz(input_dim, input_label, ".txt", options)
+            MS_LIB_Dict.map_node_to_xyz(input_dim, input_label, ".txt", options)
         if options.verbose:
             print "Input data dimensions: ", input_dim, " num_nodes=", num_nodes
             print "\ninput_label=", input_label   

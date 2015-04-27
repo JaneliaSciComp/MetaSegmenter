@@ -39,7 +39,8 @@ function Ibwn = MS_S2D_SegmentNeurons(inputName,fracBlack,fracBlack2,varargin)
     im_size = size(Igr);
     Ibwn = zeros(im_size(1),im_size(2));
     subsections = MS_S2D_DivideImageIntoSubsections(im_size, options);
-    M_thr = MS_S2D_GetThresholdIntensity(Igr, 1, subsections, options);           
+    [M_thr, M_thr2] = MS_S2D_GetThresholdIntensity(Igr, 1, subsections, options);           
+    clear M_thr2;
     Ibwn = segment_neurons(Igr, M_thr, options);
     imwrite(Ibwn, 'Ibwn_MS_S2D_SegmentNeurons.tiff');
     Ibwn = MS_S2D_AddBoundaryPadding(Ibwn, 0);
@@ -80,6 +81,7 @@ function Ibwn = segment_neurons(Igr, M_thr, options)
     Ibw = im2bw(Igr, 1);     % all values are == logical(0)
     imwrite(Igr, 'Igr1_MS_S2D_SegmentNeurons.png');
     imwrite(Ibw, 'Ibw_MS_S2D_SegmentNeurons.tiff');
+    disp(['size(Igr)=' num2str(size(Igr)) ' size(M_thr)=' num2str(size(M_thr))]);
     Ibw(Igr > M_thr) = logical(1);
     clear Igr;
 
@@ -95,11 +97,12 @@ function Ibwn = segment_neurons(Igr, M_thr, options)
     clear Ibw;
 
     imwrite(Ibwf, 'Ibwf_MS_S2D_SegmentNeurons.tiff');
+%   Ibwf = imerode(Ibwf, strel('disk', 1));
     Ibwn = bwareaopen(Ibwf,20);
     clear Ibwf;
 
 %   Ibwn = MS_S2D_AddBoundaryPadding(Ibwn, 0);
-    if options.dispOn
+    if options.dispOn | options.dispOn2
         MS_S2D_ShowImage(Ibwn, 'Black-white image (Ibwn)', options);
     end
 

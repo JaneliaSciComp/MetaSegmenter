@@ -11,7 +11,7 @@ import numpy
 import sys, os, optparse
 from scipy import misc
 
-import MS_Options
+import MS_LIB_Options
 
 # ----------------------------------------------------------------------
 
@@ -204,13 +204,18 @@ def update_nd_stack(nd_stack, im, k, output_type):
 
 # ----------------------------------------------------------------------
 
+def function_z_cmp(my_str):
+    return int(my_str.split("_z")[1].split("_")[0])
+
+# ----------------------------------------------------------------------
+
 if __name__ == "__main__":
 
     usage = "Usage: \n\
     %prog input_file(s) [options (-h to list)]"
 
     parser = optparse.OptionParser(usage=usage, version="%%prog ")
-    parser = MS_Options.CreateH5Stack_command_line_parser(parser)
+    parser = MS_LIB_Options.CreateH5Stack_command_line_parser(parser)
     (options, args) = parser.parse_args()
 
     # parse input
@@ -237,7 +242,10 @@ if __name__ == "__main__":
         if match and \
            (len(options.unmatch_string) == 0 or not re.search(options.unmatch_string, file)):
             input_files.append(file)
-    sorted_input_files = sorted(input_files)
+    if re.search("_z", input_files[0]):
+        sorted_input_files = sorted(input_files, key=function_z_cmp)
+    else:
+        sorted_input_files = sorted(input_files)
     imin = max(0, int(options.zmin))
     imax = min(len(input_files), int(options.zmax))
     input_files = sorted_input_files[imin:imax]
@@ -272,10 +280,14 @@ if __name__ == "__main__":
             nd_stack = update_labels_connect(nd_stack)            
         else:
             print "options.input_dir=", options.image_dir
-            input_file_paths = sorted(os.listdir(options.image_dir))         
+            files = os.listdir(options.image_dir)
+            if re.search("_z", files[0]):
+                input_file_paths = sorted(files, key=function_z_cmp)
+            else:
+                input_file_paths = sorted(files)
             first_file_path  = input_file_paths[0]
-            image_shape =  misc.imread(first_file_path).shape
-            num_images = min(len(input_files), int(options.zmax)-int(options.zmin))
+            image_shape = misc.imread(first_file_path).shape
+            num_images  = min(len(input_files), int(options.zmax)-int(options.zmin))
             image_stack = create_default_stack(image_shape, num_images, "data")
             image_files = os.listdir(options.image_dir)
             image_stack = populate_stack(image_stack, options.image_dir, image_files, "data", "imdir", options)

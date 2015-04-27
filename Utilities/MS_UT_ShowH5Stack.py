@@ -14,8 +14,8 @@ if __name__ == "__main__":
 
     if len(sys.argv) in [2, 3, 4]:
         h5_file_name =     sys.argv[1]
-        layer_id = 0
-        image_id = 0
+        layer_id = 1
+        image_id = 1
         if len(sys.argv) > 2:
             layer_id     = int(sys.argv[2])
         if len(sys.argv) > 3:
@@ -26,11 +26,8 @@ if __name__ == "__main__":
 file    = h5py.File(h5_file_name, 'r')
 dataset = numpy.transpose(file['/main'])
 data_shape = dataset.shape
-if layer_id == 0:
-    num_layers = dataset.shape[2]
-    layer_id = 1
-else:
-    num_layers = layer_id
+num_layers = dataset.shape[2]
+print "data_shape =", dataset.shape, " layer_id=", layer_id, " num_layers=", num_layers
 
 while layer_id <= num_layers:
     if len(dataset.shape) == 3:
@@ -46,7 +43,7 @@ while layer_id <= num_layers:
 
     plot_3 = 0
     if len(image_data.shape) == 2:
-        print "max=", numpy.amax(image_data), " min=", numpy.amin(image_data)
+#       print "max=", numpy.amax(image_data), " min=", numpy.amin(image_data)
         plt.imshow(image_data, cmap = cm.Greys_r) # show as grayscale image
         plt.show()
     elif len(image_data.shape) == 3:
@@ -63,19 +60,20 @@ while layer_id <= num_layers:
             show()
         else:
             image_data1 = image_data[:,:,1]
-            print "max=", numpy.amax(image_data1), " min=", numpy.amin(image_data1)
+#           print "max=", numpy.amax(image_data1), " min=", numpy.amin(image_data1)
             plt.imshow(image_data1) 
             plt.show()
     else:
         sys.exit("\nProcessing laters of shape " + str(image_data.shape) + " is not supported\n")
-#   exit()
-#   os.system('read -s -n 1 -p "Press any key to continue..."')
-#   print
     try:
-        input("Press enter to continue")
+        id = input("Enter layer_id (=0 to exit) or press enter to continue to next layer")
+        print "id=", id
+        layer_id = int(id)
+        if layer_id == 0:
+            sys.exit("Exiting ...")
     except SyntaxError:
+        layer_id = layer_id + 1
         pass
-    layer_id = layer_id + 1
 
 
 

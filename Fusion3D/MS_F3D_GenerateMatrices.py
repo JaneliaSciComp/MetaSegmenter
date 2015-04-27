@@ -11,8 +11,8 @@ import h5py
 from pydvid import voxels, general
 from   zibopt import scip
 
-import MS_Dict
-import MS_Options
+import MS_LIB_Dict
+import MS_LIB_Options
 
 ms_home = os.environ['MS_HOME']
 ms_data = os.environ['MS_DATA']
@@ -260,7 +260,7 @@ if __name__ == "__main__":
     usage = "\nUsage: %prog input_data input_type [ options ]\n"
 
     parser = optparse.OptionParser(usage=usage, version="%%prog ")
-    parser = MS_Options.GenerateMatrices_command_line_parser(parser)
+    parser = MS_LIB_Options.GenerateMatrices_command_line_parser(parser)
     (options, args) = parser.parse_args()
     
     if len(args) == 2:
@@ -275,7 +275,7 @@ if __name__ == "__main__":
             input_label = "ms3_" + os.path.basename(input_data).split('.')[0][4:]
 
         num_nodes, dict_node_xyz = \
-            MS_Dict.map_node_to_xyz(input_dim, input_label, ".txt", options)
+            MS_LIB_Dict.map_node_to_xyz(input_dim, input_label, ".txt", options)
         if options.verbose:
             print "In MS_F3D_GenerateOverlapMatrix.py: num_nodes=", num_nodes
         if len(options.output_path) == 0 and len(options.node) == 0:

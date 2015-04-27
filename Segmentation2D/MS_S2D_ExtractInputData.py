@@ -10,8 +10,8 @@ from scipy import misc
 import httplib
 from pydvid import voxels, general
 
-import MS_Dict
-import MS_Options
+import MS_LIB_Dict
+import MS_LIB_Options
 
 ms_home = os.environ['MS_HOME']
 ms_data = os.environ['MS_DATA']
@@ -45,12 +45,14 @@ def extract_image_data(input_data, input_type, ymin, ymax,\
         else:
             sys.exit("\nUnsupported type of input file. Exit.")
     elif input_type == "directory":
+        # Create a list of files
         files = []
         i = 0
         dir_path = os.path.join(ms_data,input_data)
         files_list = sorted(os.listdir(dir_path))
         files = []
-        for file in files_list:
+        for i in range(0, len(files_list)):
+            file = files_list[i]
             file_path = os.path.join(dir_path, file)
             if i in range(int(zmin), int(zmax)):
                 files.append(os.path.join(input_data, file_path))
@@ -61,8 +63,10 @@ def extract_image_data(input_data, input_type, ymin, ymax,\
             im1 = misc.imread(files[0])
         data_shape = im1.shape
         image_data = numpy.zeros((ymax-ymin,xmax-xmin), dtype="float")
+        # Read files
         i = 0
-        for file in files:
+        for i in range(0, len(files)):
+            file = files[i]
             if re.search(".tif", file):
                 im = tiff.imread(file)
             else:
@@ -137,7 +141,7 @@ if __name__ == "__main__":
     usage = "\nUsage: %prog input_data input_type [ options ]\n"
 
     parser = optparse.OptionParser(usage=usage, version="%%prog ")
-    parser = MS_Options.ExtractInputData_command_line_parser(parser)
+    parser = MS_LIB_Options.ExtractInputData_command_line_parser(parser)
     (options, args) = parser.parse_args()
     
     if len(args) == 2:
@@ -147,9 +151,10 @@ if __name__ == "__main__":
         if input_type in ["file", "directory"]:
             input_label = "ms2_" + input_data.split('.')[0]
         num_nodes, dict_node_xyz = \
-            MS_Dict.map_node_to_xyz(input_dim, input_label, ".png", options)
+            MS_LIB_Dict.map_node_to_xyz(input_dim, input_label, ".png", options)
         if options.verbose:
             print "num_nodes=", num_nodes
+            print "dict_node_xyz=", dict_node_xyz
             print "input_dim=", input_dim
         if len(options.output_path) == 0 and len(options.node) == 0:
             print "\nPlease, specify the output name (with option -o)"

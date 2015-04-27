@@ -158,17 +158,19 @@ function [] = MS_S2D_MergeImageFragments(dir, nf0, df0, verbose0, ...
         disp(['...generating file ' seg_output_name ]);
         L = MS_S2D_GenerateLabelsMatrix(output_image_bw, verbose);                  
         disp(['size(L)=' num2str(size(L)) ' class(L)='  num2str(class(L(1,1))) ' max(L)=' num2str(max(L))]);
-%       imwrite(uint16(round(mat2gray(L)*65535)), seg_output_name);
         imwrite(L, seg_output_name);
 
-        % Produce and output RGB segmentattion image
-        rgb_output_name = [ output_name(1:numel(output_name)-6) 'RGB.png'];
-        disp(' ');
-        disp(['...generating file ' rgb_output_name ]);
-        Lrgb = label2rgb(L, 'jet', 'w', 'shuffle');
-        disp('');
-        disp(['size(Lrgb)=' num2str(size(Lrgb)) ' class(Lrgb)='  class(Lrgb(1,1,1))]);
-        imwrite(Lrgb, rgb_output_name);
+        produce_RGB = 0;
+        if produce_RGB > 0
+            % Produce and output RGB segmentattion image
+            rgb_output_name = [ output_name(1:numel(output_name)-6) 'RGB.png'];
+            disp(' ');
+            disp(['...generating file ' rgb_output_name ]);
+            Lrgb = label2rgb(L, 'jet', 'w', 'shuffle');
+            disp('');
+            disp(['size(Lrgb)=' num2str(size(Lrgb)) ' class(Lrgb)='  class(Lrgb(1,1,1))]);
+            imwrite(Lrgb, rgb_output_name);
+        end
     end
 
 % ------------------------------------------------------------------------------

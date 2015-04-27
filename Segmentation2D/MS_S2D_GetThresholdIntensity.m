@@ -9,7 +9,7 @@
 % (so that every pixel will get its own threshold)
 %        
 
-function M_thr = MS_S2D_GetThresholdIntensity(Igr, fracBlack_id, subsections, options)
+function [M_thr, M_thr2] = MS_S2D_GetThresholdIntensity(Igr, fracBlack_id, subsections, options)
     % fracBlack_id == 1 for detection of neural boundaries and =2 for dark structures
     % Handle inputs
     num_edges  = 257;
@@ -17,8 +17,11 @@ function M_thr = MS_S2D_GetThresholdIntensity(Igr, fracBlack_id, subsections, op
     % Compute threshold intrensities for different regions
     nx = int32(options.nx);
     ny = int32(options.ny);
+    dx = int32(options.dx);
+    dy = int32(options.dy);
     
     thresholds_reg = zeros(ny, nx);
+    thresholds_reg2= zeros(ny, nx);
     y_center = int32(zeros(1, ny));
     x_center = int32(zeros(1, nx));
     for k=1:numel(subsections)
@@ -27,11 +30,63 @@ function M_thr = MS_S2D_GetThresholdIntensity(Igr, fracBlack_id, subsections, op
         y_center(iy) = int32(round(mean(subsections(k).ypixels)));
         x_center(jx) = int32(round(mean(subsections(k).xpixels)));
         Igr_reg = Igr(subsections(k).ypixels,subsections(k).xpixels,1);
-        thresholds_reg(iy, jx) = get_threshold_intensity_for_one_subsection(iy, jx, Igr_reg,...  
-                                          fracBlack_id, num_edges, options);
+        [thr, thr2] = get_threshold_intensity_for_one_subsection(iy, jx, Igr_reg,...  
+                          fracBlack_id, num_edges, options);
+        thresholds_reg(iy, jx)  = thr;
+        thresholds_reg2(iy, jx) = thr2;
     end
 
-    % Compute a matrix of threshold intrensities by a smooth interpolation
+    method = 'linear'; % alternatives: 'ms' 'linear  'nearest' 'spline'  'cubic'
+%   method = 'nearest';
+%   method = 'spline';
+    if strcmp(method, 'ms') | (nx == 1 & ny == 1)
+        M_thr = interpolate_intensity_thresholds_ms(Igr, nx, ny, ...
+                     x_center, y_center, thresholds_reg);
+        M_thr2= interpolate_intensity_thresholds_ms(Igr, nx, ny, ...
+                     x_center, y_center, thresholds_reg2);
+    else
+        M_thr = interpolate_intensity_thresholds_matlab(Igr, nx, ny, ...
+                     dx, dy, x_center, y_center, thresholds_reg, method);
+        M_thr2= interpolate_intensity_thresholds_matlab(Igr, nx, ny, ...
+                     dx, dy, x_center, y_center, thresholds_reg2, method);
+    end
+
+% -- --------------------------------------------------------------------------
+
+function M_thr = interpolate_intensity_thresholds_matlab(Igr, nx, ny, ...
+                 dx, dy, x_center, y_center, thresholds_reg, method)
+    size1 = int32(size(Igr,1));
+    size2 = int32(size(Igr,2));
+    M_thr = zeros(size1, size2);
+    disp([' size(M_thr)=' num2str(size(M_thr))]);
+    XI    = zeros(size1, size2);
+    YI    = zeros(size1, size2);
+    for i=1:size1
+        XI(i,:) = double(1:size2);  
+    end
+    for j=1:size2
+        YI(:,j) = double(1:size1)';
+    end
+    cxsize = numel(x_center);
+    cysize = numel(y_center);
+    for i=1:cysize
+        X(i,:) = double(x_center);
+        X(i,1) = 1;
+        X(i,numel(x_center)) = size2;
+    end
+    for j=1:cxsize
+        Y(:,j) = double(y_center)';
+        Y(1,j) = 1;
+        Y(numel(y_center),j) = size1;
+    end
+    M_thr = interp2(X, Y, double(thresholds_reg), XI, YI, method);
+
+% -- --------------------------------------------------------------------------
+
+% Compute a matrix of threshold intrensities by a smooth interpolation
+
+function M_thr = interpolate_intensity_thresholds_ms(Igr, nx, ny, ...
+                 x_center, y_center, thresholds_reg)
     size1 = int32(size(Igr,1));
     size2 = int32(size(Igr,2));
     M_thr = zeros(size(Igr));
@@ -208,15 +263,27 @@ function[A_B, A_G, A_W, mu_B, mu_G, mu_W, sig_B, sig_G, sig_W, ind_B, ...
             ind_W = ind_W + 1;
         end
     end
-    f_G   = fit(edges(ind_B:ind_W)',Hist1(ind_B:ind_W)','gauss1');
-    A_G   = f_G.a1;
-    mu_G  = f_G.b1;
-    sig_G = f_G.c1;
-    ind_G = min(find(edges > mu_B));
+
+    try
+        assert(ind_W - ind_B > 10);
+        f_G   = fit(edges(ind_B:ind_W)',Hist1(ind_B:ind_W)','gauss1');
+        A_G   = f_G.a1;
+        mu_G  = f_G.b1;
+        sig_G = f_G.c1;
+        ind_G = min(find(edges > mu_B));
+    catch
+        A_G = max(Hist1);
+        ind_G = round(min(find(Hist1 == A_G)));
+        mu_G = edges(ind_G);
+        sig_G_left = find_left_width(ind_G, Hist, edges, A_G, mu_G);
+        sig_G_right= find_right_width(ind_G, Hist, edges, A_G, mu_G);
+        sig_G = (sig_G_left + sig_G_right)/2.;  
+    end
      
 % -- --------------------------------------------------------------------------
 
-function [A_B, A_W, mu_B, mu_W, sig_B, sig_W, ind_B, ind_W, Hist1] = update_edges(Hist, edges, A_G, mu_G, sig_G, ind_G)
+function [A_B, A_W, mu_B, mu_W, sig_B, sig_W, ind_B, ind_W, Hist1] = ...
+                         update_edges(Hist, edges, A_G, mu_G, sig_G, ind_G)
     gauss_G = zeros(size(edges));
     Hist1   = zeros(size(edges)); % sum of 2 gaussians
     for i=1:numel(edges)
@@ -227,27 +294,31 @@ function [A_B, A_W, mu_B, mu_W, sig_B, sig_W, ind_B, ind_W, Hist1] = update_edge
         end
     end 
 
-    if ind_G - 1 > 10
+    try
+        assert(ind_G - 1 > 10);
         f_B   = fit(edges(1:ind_G)',Hist1(1:ind_G)','gauss1');
         A_B   = f_B.a1;
         mu_B  = f_B.b1;
         sig_B = f_B.c1;
         ind_B = min(find(edges > mu_B));
-    else
+        assert(ind_B < ind_G);
+    catch
         ind_B = round((ind_G+1)/2);
         A_B   = Hist1(ind_B);                     
         mu_B  = edges(ind_B);                
-        sig_B = sig_G;                         
+        sig_B = sig_G;      
     end
 
-    if numel(edges) - ind_G > 10
+    try
+        assert(numel(edges) - ind_G > 10);
         f_W   = fit(edges(ind_G:numel(edges))',Hist1(ind_G:numel(edges))','gauss1');
         A_W   = f_W.a1;
         mu_W  = f_W.b1;
         sig_W = f_W.c1;
         edges1= edges(ind_G:numel(edges));
         ind_W = ind_G + max(find(edges1 < mu_W));
-    else
+        assert(ind_W > ind_G);
+    catch
         ind_W = round((ind_G+numel(edges))/2);
         A_W   = Hist1(ind_W);
         mu_W  = edges(ind_W);
@@ -269,13 +340,16 @@ function [A_G, mu_G, sig_G, ind_G, Hist1] = update_center(Hist, edges, A_B, A_W,
         end
     end
 
-    if ind_W - ind_B > 10
+    try
+        assert(ind_W - ind_B > 10);
         f_G   = fit(edges(ind_B:ind_W)',Hist1(ind_B:ind_W)','gauss1');
         A_G   = f_G.a1;
         mu_G  = f_G.b1;
         sig_G = f_G.c1;
         ind_G = min(find(edges > mu_G));
-    else
+        assert(ind_G > ind_B);
+        assert(ind_G < ind_W);
+    catch 
         ind_G = round((ind_B+ind_W)/2);
         A_G   = Hist1(ind_G);                 
         mu_G  = edges(ind_G);
@@ -284,10 +358,10 @@ function [A_G, mu_G, sig_G, ind_G, Hist1] = update_center(Hist, edges, A_B, A_W,
 
 % -- --------------------------------------------------------------------------
 
-function [threshold, threshold2, A_B, mu_B, sig_B, A_G, mu_G, sig_G, A_W, mu_W, sig_W] = ...
+function [auto_thr , ind1, auto_thr2, ind2, A_B, mu_B, sig_B, ind_B, ...
+          A_G, mu_G, sig_G, ind_G, A_W, mu_W, sig_W, ind_W] = ...
           compute_threshold_intensity(i, j, Igr, Hist, edges, options)
     display_iterations = 0;
-    method = 2; % may be = 1 or 2
 
     [A_B, A_G, A_W, mu_B, mu_G, mu_W, sig_B, sig_G, sig_W, ind_B, ind_G, ind_W] = ...
         get_initial_guess(Hist, edges, options);
@@ -296,23 +370,29 @@ function [threshold, threshold2, A_B, mu_B, sig_B, A_G, mu_G, sig_G, A_W, mu_W, 
                           A_G, mu_G, sig_G, A_W, mu_W, sig_W, ...
                           'Initial guess', options);
     end
-    if options.verbose
+    if options.verbose > 0
         disp(['Initial guess [A_B, A_G, A_W, mu_B, mu_G, mu_W, sig_B, sig_G, sig_W=' ...
               num2str([A_B, A_G, A_W, mu_B, mu_G, mu_W, sig_B, sig_G, sig_W])]);
     end
     NUM_ITER = 3;
-    disp(['NUM_ITER=' num2str(NUM_ITER)]);
     for it=1:NUM_ITER
+        if options.verbose
+            disp(['iteration=' num2str(it) ' verbose=' num2str(options.verbose)]);
+        end
         [A_G, mu_G, sig_G, ind_G, Hist1] = update_center(Hist, edges, A_B, A_W, mu_B, mu_W, sig_B, sig_W, ind_B, ind_W);
-        disp(['  A_G=' num2str(A_G) ' mu_G=' num2str(mu_G) ' sig_G=' num2str(sig_G)]);
+        if options.verbose
+            disp(['  ind_G=' num2str(ind_G) ' A_G=' num2str(A_G) ' mu_G=' num2str(mu_G) ' sig_G=' num2str(sig_G)]);
+        end
         if display_iterations | (options.hist & (i == options.sx & j == options.sy))
             display_histogram(Igr, Hist1, edges, A_B, mu_B, sig_B, ...
                               A_G, mu_G, sig_G, A_W, mu_W, sig_W, ...
                               ['Iter ' num2str(it) ' center'], options);
         end
         [A_B, A_W, mu_B, mu_W, sig_B, sig_W, ind_B, ind_W, Hist1] = update_edges(Hist, edges, A_G, mu_G, sig_G, ind_G);
-        disp(['  A_B=' num2str(A_B) ' mu_B=' num2str(mu_B) ' sig_B=' num2str(sig_B)]);
-        disp(['  A_W=' num2str(A_W) ' mu_W=' num2str(mu_W) ' sig_W=' num2str(sig_W)]);
+        if options.verbose > 0
+            disp(['  ind_B=' num2str(ind_B) ' A_B=' num2str(A_B) ' mu_B=' num2str(mu_B) ' sig_B=' num2str(sig_B)]);
+            disp(['  ind_W=' num2str(ind_W) ' A_W=' num2str(A_W) ' mu_W=' num2str(mu_W) ' sig_W=' num2str(sig_W)]);
+        end
         if display_iterations | (options.hist & (i == options.sx & j == options.sy))
             display_histogram(Igr, Hist1, edges, A_B, mu_B, sig_B, ...
                               A_G, mu_G, sig_G, A_W, mu_W, sig_W, ...
@@ -320,102 +400,105 @@ function [threshold, threshold2, A_B, mu_B, sig_B, A_G, mu_G, sig_G, A_W, mu_W, 
         end
     end
     % Threshold is a position of minimum of the smoothed histogram between 2 maxima
-    if method == 1 % use minimum of hist between 2 maxima
-        smoothed_Hist = smooth(Hist);
-        smoothed_Hist_short = smoothed_Hist(ind_B:ind_W);
-        min_val = min(smoothed_Hist_short);
-        ind_min = min(find(smoothed_Hist_short == min_val));
-        threshold = edges(ind_B + ind_min);
-        threshold2 = edges(round((ind_B + ind_min + ind_W)/2));
-    else % use approximations of hist by gaussian distributions
-        gauss_B = zeros(size(edges));
-        gauss_G = zeros(size(edges));
-        gauss_W = zeros(size(edges));
-        abs_diff= 10000*ones(size(edges));
-        % Determine threshold for neural cell boundaries detection
-        for i=ind_B:ind_G
-            gauss_B(i) = A_B*exp(-((edges(i)-mu_B)/sig_B)^2);
-            gauss_G(i) = A_G*exp(-((edges(i)-mu_G)/sig_G)^2);
-            abs_diff(i)= abs(gauss_B(i) - gauss_G(i));
-        end
-        min_val = min(abs_diff);
-        ind_min = min(find(abs_diff == min_val));
-        threshold = edges(ind_min);
-        % Determine threshold for dark structures detection
-        abs_diff= 10000*ones(size(edges));
-        for i=ind_G:ind_W
-            gauss_W(i) = A_W*exp(-((edges(i)-mu_W)/sig_W)^2);
-            gauss_G(i) = A_G*exp(-((edges(i)-mu_G)/sig_G)^2);
-            abs_diff(i)= abs(gauss_W(i) - gauss_G(i));
-        end
-        min_val = min(abs_diff);
-        ind_min = max(find(abs_diff == min_val));
-        threshold2 = edges(ind_min);
+    gauss_B = zeros(size(edges));
+    gauss_G = zeros(size(edges));
+    gauss_W = zeros(size(edges));
+    abs_diff= 10000*ones(size(edges));
+    % Determine threshold for neural cell boundaries detection
+    for i=ind_B:ind_G
+        gauss_B(i) = A_B*exp(-((edges(i)-mu_B)/sig_B)^2);
+        gauss_G(i) = A_G*exp(-((edges(i)-mu_G)/sig_G)^2);
+        abs_diff(i)= abs(gauss_B(i) - gauss_G(i));
     end
+    min_val = min(abs_diff);
+    ind1 = min(find(abs_diff == min_val));
+    auto_thr  = edges(ind1);
+    % Determine threshold for dark structures detection
+    abs_diff= 10000*ones(size(edges));
+    for i=ind_G:ind_W
+        gauss_W(i) = A_W*exp(-((edges(i)-mu_W)/sig_W)^2);
+        gauss_G(i) = A_G*exp(-((edges(i)-mu_G)/sig_G)^2);
+        abs_diff(i)= abs(gauss_W(i) - gauss_G(i));
+    end
+    min_val = min(abs_diff);
+    ind2 = max(find(abs_diff == min_val));
+    auto_thr2  = edges(ind2);
+
     if options.verbose
-        disp(['method=' num2str(method) ' threshold=' num2str(threshold) ...
-              ' threshold2=' num2str(threshold2)]);
+        disp(['method=' num2str(method) ' auto_thr=' num2str(auto_thr) ...
+              ' auto_thr2 =' num2str(auto_thr2)]);
         disp(' ' );
     end
 
 % -- --------------------------------------------------------------------------
 
-function threshold = get_threshold_intensity_for_one_subsection(i, j, Igr, ...
-    fracBlack_id, num_edges, options);
-    global Hist;
-    global edges;
+function [threshold, threshold2] = get_threshold_intensity_for_one_subsection(i, j, Igr, ...
+                                       fracBlack_id, num_edges, options);
+    min_fracBlack = 0.40;
+    alpha = 0.;
+    beta  = 1.0;
     Hist  = imhist(Igr,num_edges)';      % counts
     edges = compute_edges(num_edges); % using a custom function for edges
-    disp(['options.hist=' num2str(options.hist)]);
-    if options.fracBlack == 0 | options.fracBlack2 == 0
-        [auto_threshold, auto_threshold2, A_B, mu_B, sig_B, A_G, mu_G, sig_G, A_W, mu_W, sig_W] = ...
-            compute_threshold_intensity(i, j, Igr, Hist, edges, options);
-            disp(['  A_B=' num2str(A_B) ' mu_B=' num2str(mu_B) ' sig_B=' num2str(sig_B)]);
-            disp(['  A_G=' num2str(A_G) ' mu_G=' num2str(mu_G) ' sig_G=' num2str(sig_G)]);
-            disp(['  A_W=' num2str(A_W) ' mu_W=' num2str(mu_W) ' sig_W=' num2str(sig_W)]);
-            disp([' (automatic) threshold='  num2str(auto_threshold)]);
-            disp([' (automatic) threshold2=' num2str(auto_threshold2)]);
-            disp([' mu_B + sig_B=' num2str(mu_B + sig_B)]);
-            disp([' mu_B + 2*sig_B=' num2str(mu_B + 2*sig_B)]);
-            disp([' mu_W - sig_W=' num2str(mu_W - sig_W)]);
-            disp([' mu_W - 2*sig_W=' num2str(mu_W - 2*sig_W)]);
 
-        if options.fracBlack == 0
-            threshold = max(auto_threshold, mu_B + sig_B);
-            if options.verbose
-                disp(['i=' num2str(i) ' j=' num2str(j) ' (automatic) threshold=' num2str(threshold)]);
-            end
-        end
-        if options.fracBlack2 == 0
-            threshold2 = auto_threshold2;
-            threshold2 = max(auto_threshold2, mu_W - sig_W);
-            if options.verbose
-                disp(['i=' num2str(i) ' j=' num2str(j) ' (automatic) threshold2=' num2str(threshold2)]);
-            end
-        end
-    else
-        if options.verbose
-            disp(['i=' num2str(i) ' j=' num2str(j) ' threshold=' num2str(threshold) 'threshold2=' num2str(threshold2)]);
+    % Ignore pixels where intensity is exactly == 1 or exactly == 0
+    Hist(1) = 0;
+    Hist(numel(Hist)) = 0;
+    Hsum  = sum(Hist');
+    cum_hist = get_cumulative_histogram(Hist', Hsum);
+
+    % Determine 'automatic' thresholds first
+    [auto_thr, ind1, auto_thr2, ind2, A_B, mu_B, sig_B, ind_B, A_G, mu_G, sig_G, ind_G, ...
+     A_W, mu_W, sig_W, ind_W] = ...
+        compute_threshold_intensity(i, j, Igr, Hist, edges, options);
+    if options.verbose 
+        disp(['  A_B=' num2str(A_B) ' mu_B=' num2str(mu_B) ' sig_B=' num2str(sig_B)]);
+        disp(['  A_G=' num2str(A_G) ' mu_G=' num2str(mu_G) ' sig_G=' num2str(sig_G)]);
+        disp(['  A_W=' num2str(A_W) ' mu_W=' num2str(mu_W) ' sig_W=' num2str(sig_W)]);
+        disp([' (automatic) threshold='  num2str(auto_thr)]);
+        disp([' (automatic) threshold2=' num2str(auto_thr2)]);
+        disp([' mu_B + sig_B=' num2str(mu_B + sig_B)]);
+        disp([' mu_B + 2*sig_B=' num2str(mu_B + 2*sig_B)]);
+        disp([' mu_W - sig_W=' num2str(mu_W - sig_W)]);
+        disp([' mu_W - 2*sig_W=' num2str(mu_W - 2*sig_W)]);
+    end
+    
+    threshold  = auto_thr;
+    fracBlack  = get_fracBlack(cum_hist, threshold, edges, options.verbose);
+%   if fracBlack < min_fracBlack 
+%       threshold = max(auto_thr, mu_B + sig_B);
+%       fracBlack  = get_fracBlack(cum_hist, threshold, edges, options.verbose);
+%       if fracBlack < min_fracBlack
+%           fracBlack = mu_G;
+%           fracBlack  = get_fracBlack(cum_hist, threshold, edges, options.verbose);
+%       end    
+%   end
+    threshold2 = mu_B;
+
+    if fracBlack < min_fracBlack | ...
+       (fracBlack_id == 1 & options.fracBlack  > 0) | ...
+       (fracBlack_id == 2 & options.fracBlack2 > 0)
+        Hsum  = sum(Hist');
+        cum_hist = get_cumulative_histogram(Hist', Hsum);
+
+        % Black-white image
+        if  fracBlack_id == 1 & options.fracBlack > 0
+            threshold = get_threshold_intensity(cum_hist, options.fracBlack, edges, options.verbose);
+        elseif fracBlack_id == 2 & options.fracBlack2 > 0
+            threshold = get_threshold_intensity(cum_hist, options.fracBlack2, edges, options.verbose);
+        elseif fracBlack < min_fracBlack
+            fracBlack = min_fracBlack;
+            threshold = get_threshold_intensity(cum_hist, fracBlack, edges, options.verbose);
         end
     end
+
+    disp(' ');
+%   disp(['fracBlack_id=' num2str(fracBlack_id)]);
+    disp(['i=' num2str(i) ' j=' num2str(j) '  threshold=' num2str(threshold) ' fracBlack=' num2str(fracBlack)]);
+
     if options.hist & ((options.nx == 1 & options.ny == 1) | (i == options.sx & j == options.sy))
         display_histogram(Igr, Hist, edges, A_B, mu_B, sig_B, ...
                           A_G, mu_G, sig_G, A_W, mu_W, sig_W, ...
                           'Histogram of intensity - final', options);
-    end
-    Hsum  = sum(Hist');
-    cum_hist = get_cumulative_histogram(Hist', Hsum);
-
-    % Black-white image
-    if  fracBlack_id == 1 & options.fracBlack > 0
-        threshold = get_threshold_intensity(cum_hist, options.fracBlack, edges, options.verbose);
-    elseif fracBlack_id == 2 & options.fracBlack2 > 0
-        threshold = get_threshold_intensity(cum_hist, options.fracBlack2, edges, options.verbose);
-    end
-    if options.verbose
-        disp(' ');
-        disp(['threshold=' num2str(threshold)]);
-        disp(' ');
     end
 
 % -----------------------------------------------------------------------------
@@ -458,6 +541,10 @@ function threshold_intensity = get_threshold_intensity(cum_hist, fracBlack,...
 
 % -----------------------------------------------------------------------------
 
+function fracBlack = get_fracBlack(cum_hist, threshold_intensity, edges, verbose)
+    fracBlack = cum_hist(max(find(edges < threshold_intensity)));
+
+% -----------------------------------------------------------------------------
 
 function edges = compute_edges(num_edges)
     edges = zeros(1, num_edges);

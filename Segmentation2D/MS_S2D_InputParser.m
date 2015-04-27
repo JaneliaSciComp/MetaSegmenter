@@ -9,12 +9,12 @@ classdef MS_S2D_InputParser < inputParser
         defaultDispOn2   = 0;
         defaultPadding   = 0;
         defaultCloseAll  = 1;
-        defaultNumTilesX = 1;
-        defaultNumTilesY = 1;
-        defaultTileX     = 0;
-        defaultTileY     = 0;
-        defaultSectionX  = 0;
-        defaultSectionY  = 0;
+        defaultNumSubX   = 1;
+        defaultNumSubY   = 1;
+        defaultDX        = 50;
+        defaultDY        = 50;
+        defaultSubX      = 0;
+        defaultSubY      = 0;
         defaultMaxSize   = Inf; 
         defaultOutBW     = ''; % name for output black/white image file
         defaultOutSeg    = ''; % name for output segmentation file
@@ -51,10 +51,10 @@ classdef MS_S2D_InputParser < inputParser
                 obj.defaultDispOn2   = num2str(obj.defaultDispOn2);
                 obj.defaultCloseAll  = num2str(obj.defaultCloseAll);
                 obj.defaultPadding   = num2str(obj.defaultPadding);
-                obj.defaultNumTilesX = num2str(obj.defaultNumTilesX);
-                obj.defaultNumTilesY = num2str(obj.defaultNumTilesY);
-                obj.defaultTileX     = num2str(obj.defaultTileX);        
-                obj.defaultTileY     = num2str(obj.defaultTileY);        
+                obj.defaultNumSubX   = num2str(obj.defaultNumSubX);     
+                obj.defaultNumSubY   = num2str(obj.defaultNumSubY);
+                obj.defaultSubX      = num2str(obj.defaultSubX );        
+                obj.defaultSubY      = num2str(obj.defaultSubY );        
                 obj.defaultSectionX  = num2str(obj.defaultSectionX);
                 obj.defaultSectionY  = num2str(obj.defaultSectionY);
                 obj.defaultMaxSize   = num2str(obj.defaultMaxSize);
@@ -67,12 +67,12 @@ classdef MS_S2D_InputParser < inputParser
             obj.addParamValue('dispOn2', obj.defaultDispOn2); 
             obj.addParamValue('closeAll',obj.defaultCloseAll);
             obj.addParamValue('padding', obj.defaultPadding);
-            obj.addParamValue('nx',      obj.defaultNumTilesX);
-            obj.addParamValue('ny',      obj.defaultNumTilesY);
-            obj.addParamValue('ix',      obj.defaultTileX);          
-            obj.addParamValue('iy',      obj.defaultTileY);
-            obj.addParamValue('sx',      obj.defaultSectionX);
-            obj.addParamValue('sy',      obj.defaultSectionY);
+            obj.addParamValue('nx',      obj.defaultNumSubX);
+            obj.addParamValue('ny',      obj.defaultNumSubX);
+            obj.addParamValue('dx',      obj.defaultDX);          
+            obj.addParamValue('dy',      obj.defaultDY);            
+            obj.addParamValue('sx',      obj.defaultSubX);
+            obj.addParamValue('sy',      obj.defaultSubY);
             obj.addParamValue('maxSize', obj.defaultMaxSize);
             obj.addParamValue('outBW',   obj.defaultOutBW')
             obj.addParamValue('outSeg',  obj.defaultOutSeg);

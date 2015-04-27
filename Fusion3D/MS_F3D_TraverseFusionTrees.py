@@ -5,7 +5,7 @@
 import os, sys, re, optparse
 import numpy
 
-import MS_Options
+import MS_LIB_Options
 
 ms_home = os.environ['MS_HOME']
 ms_data = os.environ['MS_DATA']
@@ -151,7 +151,7 @@ if __name__ == "__main__":
     usage = "\nUsage: %prog input_data input_type [options (-h to list)]\n"
 
     parser = optparse.OptionParser(usage=usage, version="%%prog ")
-    parser = MS_Options.TraverseFusionTrees_command_line_parser(parser)
+    parser = MS_LIB_Options.TraverseFusionTrees_command_line_parser(parser)
     (options, args) = parser.parse_args()
 
     if len(args) == 2:

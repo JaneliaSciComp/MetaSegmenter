@@ -10,8 +10,8 @@ import os
 import sys, re 
 import optparse
 
-import MS_Dict
-import MS_Options
+import MS_LIB_Dict
+import MS_LIB_Options
 
 ms_home = os.environ['MS_HOME']
 ms_data = os.environ['MS_DATA']
@@ -80,17 +80,22 @@ def process_inputs_ymerge(input_label, xdim, ydim, node, dict_nodes_ymerge, opti
     node        = int(node)
     z           = dict_nodes_ymerge[node]
 
-    output_path = os.path.join(ms_temp, input_label + "_z" + str(z+1) + "_BW.png")
-    executable_path = os.path.join(ms_home, "Bin", options.executable)
-    command_ymerge = executable_path  + " y " + str(options.ny)           + " " +\
+    # Merge fragments in y-direction
+    bw_output_path = os.path.join(ms_temp, input_label + "_z" + str(z+1) + "_BW.png")
+    merge_executable_path = os.path.join(ms_home, "Bin", options.executable)
+    command_ymerge = merge_executable_path  + " y " + str(options.ny)     + " " +\
                      str(options.dy)  + "   " + str(int(options.verbose)) + " " +\
                      str(ydim)        + "   " + str(xdim)                 + " " +\
-                     output_path
+                     bw_output_path
     command_rm     = "rm -f "
     for y in range(0, int(options.ny)):
-        input_path = os.path.join(ms_temp,\
-                     input_label + "_y" + str(y+1) + "_z" + str(z+1) + \
-                     "_BW.png")
+        if int(options.ny) > 1:
+            input_path = os.path.join(ms_temp,\
+                         input_label + "_y" + str(y+1) + "_z" + str(z+1) + \
+                         "_BW.png")
+        else:
+            input_path = os.path.join(ms_temp,\
+                         input_label + "_z" + str(z+1) + "_BW.png")
         command_ymerge += " " + input_path
         command_rm     += " " + input_path
     os.system(command_ymerge)
@@ -105,14 +110,13 @@ def process_inputs_ymerge(input_label, xdim, ydim, node, dict_nodes_ymerge, opti
 # ----------------------------------------------------------------------
 
 def process_inputs_zmerge(zdim, input_label, node, dict_nodes_zmerge, options):
-    node      = int(node)
+    node       = int(node)
     match_str0 = dict_nodes_zmerge[node] 
     match_str  = input_label + '*' + match_str0 + "$"
 
     output_path = os.path.join(ms_data, \
         input_label + "_" + match_str0.split(".")[0] + ".h5")
-    executable_path = os.path.join(ms_home, "Utilities", \
-                                   "MS_UT_CreateH5Stack.py")
+    executable_path = os.path.join(ms_home,"Utilities","MS_UT_CreateH5Stack.py")
     command_zmerge = executable_path    + " " + ms_temp + " -t data " + \
                      " -m " + match_str + " -u _y -o " + output_path +\
                      " -z " + str(options.zmin) + " -Z " + str(options.zmax)
@@ -121,12 +125,9 @@ def process_inputs_zmerge(zdim, input_label, node, dict_nodes_zmerge, options):
     command_rm     = "rm -f "
     z_range = range(max(0, int(options.zmin)), min(zdim, int(options.zmax)))
     for z in z_range:
-        if match_str0 in ["_Seg.png", "_RGB.png"]:
-            input_file = input_label + "_z" + str(z+1) + "_" + match_str0
-        else:
-            input_file = input_label + "_z" + str(z+1) + "_" + match_str0
+        input_file = input_label + "_z" + str(z+1) + "_" + match_str0
     input_path = os.path.join(ms_temp, input_file)
-    command_rm     += " " + input_path
+    command_rm += " " + input_path
     os.system(command_zmerge)
 
     if options.verbose:
@@ -158,7 +159,7 @@ if __name__ == "__main__":
     usage = "\nUsage: %prog input_label merge_dir xdim ydim zdim node [options (-h to list)]\n"
 
     parser = optparse.OptionParser(usage=usage, version="%%prog ")
-    parser = MS_Options.MergeImageFragments_command_line_parser(parser)
+    parser = MS_LIB_Options.MergeImageFragments_command_line_parser(parser)
     (options, args) = parser.parse_args()
 
     if options.compile:
@@ -166,13 +167,13 @@ if __name__ == "__main__":
     if len(args) == 6:      
         input_label, mdir, xdim, ydim, zdim, node = args[0:6]
         if mdir == 'x':
-            num_nodes, dict_nodes_xmerge = MS_Dict.map_nodes_xmerge(xdim, ydim, zdim, options)
+            num_nodes, dict_nodes_xmerge = MS_LIB_Dict.map_nodes_xmerge(xdim, ydim, zdim, options)
             process_inputs_xmerge(input_label, xdim, ydim, node, dict_nodes_xmerge, options)
         elif mdir == 'y':
-            num_nodes, dict_nodes_ymerge = MS_Dict.map_nodes_ymerge(ydim, zdim, options)
+            num_nodes, dict_nodes_ymerge = MS_LIB_Dict.map_nodes_ymerge(ydim, zdim, options)
             process_inputs_ymerge(input_label, xdim, ydim, node, dict_nodes_ymerge, options)
         elif mdir == 'z':
-            num_nodes, dict_nodes_zmerge = MS_Dict.map_nodes_zmerge(zdim, options)
+            num_nodes, dict_nodes_zmerge = MS_LIB_Dict.map_nodes_zmerge(zdim, options)
             process_inputs_zmerge(zdim, input_label, node, dict_nodes_zmerge, options)
         else:
             print "Unsapported merge direction ", mdir

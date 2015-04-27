@@ -42,8 +42,8 @@ function Ibwd = MS_S2D_DetectDarkStructures2D(inputName,fracBlack,fracBlack2,var
     Igr = mat2gray(I);
     clear I;
 
-    M_thr = MS_S2D_GetThresholdIntensity(Igr, 2, subsections, options);      
-    Ibwd = segment_dark_structures(Igr, M_thr, options);
+    [M_thr, M_thr2] = MS_S2D_GetThresholdIntensity(Igr, 2, subsections, options);      
+    Ibwd = segment_dark_structures(Igr, M_thr, M_thr2, options);
     Ibwd = MS_S2D_AddBoundaryPadding(Ibwd, 0);
 
     if options.dispOn
@@ -71,7 +71,7 @@ function Ibwd = MS_S2D_DetectDarkStructures2D(inputName,fracBlack,fracBlack2,var
 
 % -----------------------------------------------------------------------------
 
-function Ibwd = segment_dark_structures(Igr, M_thr, options)
+function Ibwd = segment_dark_structures(Igr, M_thr, M_thr2, options)
     % Black-white image
     %
     % Determine intensity threshold for conversion to black-white image
@@ -79,8 +79,12 @@ function Ibwd = segment_dark_structures(Igr, M_thr, options)
     % NOTE2: edges are computed incorrectly by Matlab's imhist function,
     %        so a custom function has been implemented for compuring the edges
     Ibw = im2bw(Igr, 1);
-    Ibw(Igr > M_thr) = logical(1);
+    Ibw(Igr > M_thr)  = logical(1);
+    Ibw2 = im2bw(Igr, 1);
+    Ibw2(Igr < M_thr2) = logical(1);
     clear Igr;
+    Ibw(Ibw2) = logical(0); % subtract Ibw2 from Ibw
+    clear Ibw2; 
 
     Ibw = bwareaopen(Ibw,20);
     Ibw = MS_S2D_AddBoundaryPadding(Ibw, 1);
@@ -92,13 +96,14 @@ function Ibwd = segment_dark_structures(Igr, M_thr, options)
     % Handling complement
     Ibwc = imcomplement(Ibw);
     clear Ibw;
-    Ibwc = bwareaopen(Ibwc,200);
-    Ibwc = imcomplement(Ibwc);
-    if options.dispOn
+    Ibwc = imerode(Ibwc, strel('disk', 2));
+    Ibwc = bwareaopen(Ibwc,300);
+    if options.dispOn | options.dispOn2
         MS_S2D_ShowImage(Ibwc, 'Complement of dilated black-white image (Ibwc)', options);
     end
 
     % Dilated BW image
+    Ibwc = imcomplement(Ibwc);
     Ibwcd = imdilate(Ibwc, strel('disk', 2));
     clear Ibwc;
     if options.dispOn
@@ -108,15 +113,15 @@ function Ibwd = segment_dark_structures(Igr, M_thr, options)
     % Inversed 
     Ibwcdc = imcomplement(Ibwcd);
     clear Ibwcd;
-    Ibwcdc = imerode(Ibwcdc, strel('disk', 2));
-    Ibwcdc = bwareaopen(Ibwcdc,200);
+    Ibwcdc = imerode(Ibwcdc, strel('disk', 4));
+    Ibwcdc = bwareaopen(Ibwcdc,300);
     Ibwcdc = imfill(Ibwcdc, 'holes');
-    Ibwcdc = imdilate(Ibwcdc, strel('disk', 2));
+    Ibwcdc = imdilate(Ibwcdc, strel('disk', 3));
     Ibwd  = imfill(Ibwcdc, 'holes');
     clear Ibwcdc;
 
 %   Ibwd   = MS_S2D_AddBoundaryPadding(Ibwd, 0);
-    if options.dispOn
+    if options.dispOn | options.dispOn2
         MS_S2D_ShowImage(Ibwd, 'Final (dilated, inversed, filled and eroded) black-white image (Ibwd)', options);
     end
 
@@ -137,40 +142,4 @@ function output_usage_message()
     disp('    outRGB       - name of output colored labels file (default='', no output)');
     disp('    verbose      - weather or not to increase verbosity of output (default=0)');
     return;
-
-% -----------------------------------------------------------------------------
-
-function [xpixels, ypixels] = get_pixels_to_show(im_size, options)
-    xlen = round(im_size(1)/options.nx);
-    ylen = round(im_size(2)/options.ny);
-    xbeg = (options.ix -1)*xlen + 1;
-    xend =  options.ix    *xlen;
-    ybeg = (options.iy -1)*ylen + 1;
-    yend =  options.iy    *ylen;
-    if options.verbose
-        disp(['xbeg=' num2str(xbeg) ' xend=' num2str(xend) ...
-             ' ybeg=' num2str(ybeg) ' yend=' num2str(yend)]);
-    end
-    xpixels = [xbeg:xend];
-    ypixels = [ybeg:yend];
-
-% -----------------------------------------------------------------------------
-
-function L = generate_labels_matrix(Ibwf, verbose)
-    CC = bwconncomp(Ibwf); % NOTE: this function does not label holes
-    Nc = CC.NumObjects;
-    imsize = CC.ImageSize;
-
-    if verbose
-        disp(['imsize=' num2str(imsize) ' num_comp=' num2str(Nc) ]);
-    end
-    L = zeros(imsize);
-    for k = 1:Nc
-        for m=1:numel(CC.PixelIdxList{k})
-            lin_ind = CC.PixelIdxList{k}(m);
-            [r, c] = ind2sub(CC.ImageSize, lin_ind);
-%           disp(['lin_ind=' num2str(lin_ind) ' r=' num2str(r) ' c=' num2str(c)]);
-            L(r,c) = k;
-        end
-    end
 

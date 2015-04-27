@@ -14,21 +14,19 @@ if __name__ == "__main__":
 
     if len(sys.argv) in [2, 3]:
         dir_path = sys.argv[1]
-        file_id = 0
+        file_id = 1
         if len(sys.argv) > 2:
-            file_id     = int(sys.argv[2]) -1
+            file_id = int(sys.argv[2]) -1
+            if  file_id <= 0:
+                sys.exit("Exiting ...")
     else:
-        sys.exit("\nusage: MS_UT_ShowImageDir.py dir_path [ file# [ image_id ]]\n")
+        sys.exit("\nusage: MS_UT_ShowImageDir.py dir_path [ first_file# (>= 1)]\n")
 
 files = sorted(os.listdir(dir_path))     
 num_files = len(files) 
 print "num_files=", num_files               
-if file_id > 0:
-    num_files = file_id
-else:
-    file_id = 1
-
-for i in range(file_id-1, num_files):
+i = file_id-1
+while i < num_files:
     print "File#=", i+1, " name=", files[i]
     myfile = os.path.join(dir_path, files[i])
     image_data = numpy.asarray(Image.open(myfile))
@@ -39,8 +37,13 @@ for i in range(file_id-1, num_files):
         plt.imshow(image_data)
         plt.show()
     try:
-        input("Press enter to continue")
+        id = input("Enter layer_id (=0 to exit) or press enter to continue to next layer")
+        print "id=", id
+        i = int(id)
+        if i == 0:
+            sys.exit("Exiting ...")
     except SyntaxError:
+        i = i + 1
         pass
     
 

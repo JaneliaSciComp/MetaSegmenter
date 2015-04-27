@@ -19,11 +19,11 @@ function subsections = MS_S2D_DivideImageIntoSubsections(im_size, options)
     end
     k = 0;
     for iy=1:ny_best
-        if options.iy > 0 && iy ~= options.iy
+        if options.sy > 0 && iy ~= options.sy
             continue;
         end
         for ix=1:nx_best
-            if options.ix > 0 && ix ~= options.ix
+            if options.sx > 0 && ix ~= options.sx
                 continue;
             end
             k = k+1;
