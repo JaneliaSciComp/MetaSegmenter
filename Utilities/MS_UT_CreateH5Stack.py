@@ -152,44 +152,52 @@ def populate_stack(nd_stack, input_dir, input_files, output_type, imdir, options
         ifile_path = os.path.join(input_dir, ifile)
         print "In populate_stack: i=", i, " ifile_path=", ifile_path
         try:
-            print "Trying Image.open ..."
+            print "\nTrying Image.open ..."
             im = Image.open(ifile_path)
+            print "Using Image: max_label=", numpy.max(im)
         except:
             try:  
-                print "Trying misc.imread ..."
+                print "\nTrying misc.imread ..."
                 im = misc.imread(ifile_path)
+                print "Using misc.imread: max_label=", numpy.max(im)
             except:
-                print "Trying matplotlib.image.imread ..."
-                matplotlib.image.imread(ifile_path)
+                print "\nTrying matplotlib.image.imread ..."
+                im = matplotlib.image.imread(ifile_path)
+                print "Using matplotlib: max_label=", numpy.max(im)
 #       if output_type == "data" and len(imdir) == 0:
 #           im = normalize_image(im)
 #       elif output_type == "data" and len(imdir) > 0:
 #           im = scale_image(im)
         i = i + 1
         print "Updating stack with ", ifile, " (i=", i, ")..."
-        nd_stack = update_nd_stack(nd_stack, im, i-1, output_type)
+        nd_stack = update_nd_stack(nd_stack, im, i-1, output_type, options)
+        sys.stdout.flush()
     return nd_stack
 
 # ----------------------------------------------------------------------
 
-# For data stack, set pixel value t0 intensity of input image
+# For data stack, set pixel value to intensity of input image
 # For labels stack, set pixel value initially to 1 if the pixel is within object
 # (this value will be updated later)
 # For mask stack, leave pixels unchanged (they have been already set all to 1)
-def update_nd_stack(nd_stack, im, k, output_type):
+def update_nd_stack(nd_stack, im, k, output_type, options):
     stack_shape = nd_stack.shape
 #   print "stack_shape=", stack_shape, " im.shape=", im.shape, " k=", k
     if output_type == "data":
         im_data = numpy.asarray(im)
         print "nd_stack.shape=", nd_stack.shape, " im_data.shape=", im_data.shape 
         if len(im_data.shape) == 2:
-            # BW or Seg
-            print "type(nd_stack)=", type(nd_stack[0,0,0]), " type(im_data)=",  type(im_data[0,0])
-            im_data = numpy.array(im.getdata(), numpy.uint8).reshape(im.size[0], im.size[1])
+            if re.search("Seg.png", options.match_string) or re.search("_relabeled", options.match_string):
+                print "\nUsing uint16 labels\n" 
+                im_data = numpy.array(im.getdata(), numpy.uint16).reshape(im.size[0], im.size[1])
+            else:
+                print "\nUsing uint8  labels\n"
+                im_data = numpy.array(im.getdata(), numpy.uint8).reshape(im.size[0], im.size[1])
             print "type(nd_stack)=", type(nd_stack[0,0,0]), " type(im_data)=",  type(im_data[0,0])
             nd_stack[:,:,k] = im_data
         else:
             # RGB image
+            print "\nUsing uint8  labels\n"
             print "type(nd_stack)=", type(nd_stack[0,0,0,0]), " type(im_data)=",  type(im_data[0,0,0])
             im_data = numpy.array(im.getdata(), numpy.uint8).reshape(im.size[0], im.size[1], 3)
             nd_stack[:,:,k,:] = im_data
@@ -205,7 +213,10 @@ def update_nd_stack(nd_stack, im, k, output_type):
 # ----------------------------------------------------------------------
 
 def function_z_cmp(my_str):
-    return int(my_str.split("_z")[1].split("_")[0])
+    split1 = my_str.split("_z")[1]
+    if re.search("_", split1):
+        return int(split1.split("_")[0])
+    return int(split1.split(".")[0])
 
 # ----------------------------------------------------------------------
 
@@ -243,6 +254,7 @@ if __name__ == "__main__":
            (len(options.unmatch_string) == 0 or not re.search(options.unmatch_string, file)):
             input_files.append(file)
     if re.search("_z", input_files[0]):
+        print "input_files[0]=", input_files[0]
         sorted_input_files = sorted(input_files, key=function_z_cmp)
     else:
         sorted_input_files = sorted(input_files)
@@ -257,14 +269,17 @@ if __name__ == "__main__":
     try:
         # Using PIL
         image_data = numpy.asarray(Image.open(myfile))
+        print "Using PIL: max_label=", numpy.max(image_data)
     except:
         try:
             # Using scipy
             image_data = numpy.asarray(misc.imread(myfile))
+            print "Using scipy: max_label=", numpy.max(image_data)
         except:
             try:
                 # Using Matplotlib
                 image_data = numpy.asarray(matplotlib.image.imread(myfile, format = 'png'))
+                print "Using matplotlib: max_label=", numpy.max(image_data)
             except:
                 print "Unable to read image file", myfile
                 sys.exit(2)

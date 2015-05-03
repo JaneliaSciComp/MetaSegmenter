@@ -80,8 +80,10 @@ def MergeImageFragments_command_line_parser(parser):
 
 def Fusion3D_command_line_parser(parser):
     parser.add_option("-A", "--project",dest="project_code",help="code to be used with qsub",metavar="project_code", default="flyTEM")
+    parser.add_option("-a", "--overlap_area",dest="overlap_area",help="min overlap_area",metavar="overlap_area",default="200")
     parser.add_option("-D", "--debug",dest="debug",help="don't delete intermediate outputs", action="store_true", default=False)
     parser.add_option("-e", "--executable",dest="executable",help="executable",metavar="executable",default="MS_S2D_Segmentation2D")
+    parser.add_option("-f", "--overlap_fraction",dest="overlap_fraction",help="overlap_fraction",metavar="overlap_fraction",default="0.5")
     parser.add_option("-l", "--nlen",   dest="nlen", help="# of subsections for processing a fragment in y (length) direction",metavar="nlen", default="1")
     parser.add_option("-m", "--maxsize",dest="msize", help="# of subsections for processing a fragment in y (length) direction",metavar="nlen",default=sys.maxint)
     parser.add_option("-n", "--node",   dest="node", help="id of the cluster node to be used", metavar="node",  default=0)
@@ -105,8 +107,10 @@ def Fusion3D_command_line_parser(parser):
 # -----------------------------------------------------------------------
 
 def GenerateMatrices_command_line_parser(parser):
+    parser.add_option("-a", "--overlap_area",dest="overlap_area",help="min overlap_area",metavar="overlap_area",default="200")
     parser.add_option("-d", "--dataset", dest="dataset", help="dataset in DVID store",default='test1')
     parser.add_option("-D", "--debug",dest="debug", help="debugging; don't delete shell scripts", action="store_true", default=False)
+    parser.add_option("-f", "--overlap_fraction",dest="overlap_fraction",help="overlap_fraction",metavar="overlap_fraction",default="0.5")
     parser.add_option("-i", "--uuid",dest="uuid",help="uuid for DVID store",default='fe7')
     parser.add_option("-L", "--length", dest="ydim", help="y-size (length) of an image", metavar="ydim", default="")
     parser.add_option("-H", "--height", dest="zdim", help="z-size (height, or # layers) of an image stack", metavar="zdim", default="")
@@ -126,7 +130,8 @@ def GenerateMatrices_command_line_parser(parser):
 
 # -----------------------------------------------------------------------
 
-def MergeFusionMatrices_command_line_parser(parser):
+def MergeMatrices_command_line_parser(parser):
+    parser.add_option("-a", "--overlap_area",dest="overlap_area",help="min overlap_area",metavar="overlap_area",default="200")
     parser.add_option("-D", "--debug",dest="debug", help="debugging; don't delete shell scripts", action="store_true", default=False)
     parser.add_option("-n", "--node",   dest="node", help="id of the cluster node to be used", metavar="node",  default=0)
     parser.add_option("-o", "--output_path",dest="output_path",help="output path",metavar="output_path",default="")

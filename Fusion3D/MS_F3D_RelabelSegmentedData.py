@@ -18,7 +18,7 @@ ms_temp = os.environ['MS_TEMP']
 def get_image_data(input_data, input_type, options):
     image_data = []
     try:
-        z = int(options.node) - 1
+        z = int(options.zmin) + int(options.node) - 1
     except:
         z = options.node - 1
     if input_type == "file":
@@ -61,12 +61,18 @@ def get_image_data(input_data, input_type, options):
 def relabel_image_data(image_data, input_label, options):
     print "image_data.dtype=", image_data.dtype
     z = int(options.zmin) + int(options.node) -1
-    labels_file = os.path.join(ms_temp, input_label + "_labels" +\
-                               "_z" + str(z+1) + ".txt")
-    labels = numpy.loadtxt(labels_file, delimiter='\t')
+    labels_file = os.path.join(ms_temp, input_label + "_labels.txt")
+    labels = numpy.array(numpy.loadtxt(labels_file, delimiter='\t'))
+    labels1 = []
+    for i in range(0, labels.shape[0]):
+        if labels[i][0] == z:
+            labels1.append([labels[i, 1], labels[i, 2]])
     relabeled_image_data = numpy.zeros(image_data.shape, dtype=image_data.dtype)
-    for i in range(1, len(labels)):
-        relabeled_image_data[image_data == i] = labels[i]
+    for i in range(0, len(labels1)):
+        print "Changing label ", int(labels1[i][0]), " for label ", int(labels1[i][1]), \
+              " on area ", (image_data == labels1[i][0]).sum()
+        relabeled_image_data[image_data == labels1[i][0]] = labels1[i][1]
+#       sys.stdout.flush()
     return relabeled_image_data
 
 # -----------------------------------------------------------------------

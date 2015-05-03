@@ -164,11 +164,14 @@ def create_generate_matrices_job(outfolderpath, \
         " -Y " + str(options.ny)   + " -y " + str(options.dy) + \
         " -z " + str(zmin)         + " -Z " + str(zmax) +\
         " -L " + str(input_dim[0]) + " -W " + str(input_dim[1]) +\
-        " -H " + str(input_dim[2])
+        " -H " + str(input_dim[2]) + " -f " + str(options.overlap_fraction) +\
+        " -a " + str(options.overlap_area)
     if options.verbose:
         command_matrices += " -v "
     if options.debug:
         command_matrices += " -D "
+    if options.unprocessed:
+        command_matrices  += " -U "
     command_matrices    += "\n"
     scr.write(command_matrices)  
     if options.verbose:
@@ -187,15 +190,15 @@ def create_merge_job(outfolderpath, input_data, input_type,\
                        input_dim, input_label, options):
     zmin = max(0,            int(options.zmin))
     zmax = min(input_dim[2], int(options.zmax))
-    num_nodes = zmax - zmin
+    num_nodes = zmax - zmin -1
     if options.verbose:
         print "Number of merge nodes=", num_nodes
 
     merge_script_path = \
-        os.path.join(outfolderpath, "Merge_fusion_script_ms3." +\
+        os.path.join(outfolderpath, "Merge_script_ms3." +\
                      input_label + ".sh")
     executable_path = os.path.join(ms_home,"Fusion3D", \
-                                   "MS_F3D_MergeFusionMatrices.py")
+                                   "MS_F3D_MergeMatrices.py")
     scr = open(merge_script_path, 'wt')
     scr.write("#!/usr/bash\n")
     scr.write("#$ -t 1-" + str(num_nodes) + "\n")
@@ -205,7 +208,8 @@ def create_merge_job(outfolderpath, input_data, input_type,\
                       + " -X " + str(options.nx)  \
                       + " -Y " + str(options.ny)  \
                       + " -z " + str(zmin)        \
-                      + " -Z " + str(zmax)           
+                      + " -Z " + str(zmax)        \
+                      + " -a " + str(options.overlap_area)
     if options.verbose:
         command_merge += " -v "
     if options.debug:
@@ -224,7 +228,7 @@ def create_merge_job(outfolderpath, input_data, input_type,\
 def create_traverse_job(outfolderpath, input_data, input_type,\
                       input_dim, input_label, options):
     zmin = max(0,            int(options.zmin))
-    zmax = min(input_dim[2], int(options.zmax))
+    zmax = min(input_dim[2], int(options.zmax)) 
     if options.verbose:
         print "Number of traverse  nodes=", 1
     traverse_script_path = \
@@ -236,7 +240,7 @@ def create_traverse_job(outfolderpath, input_data, input_type,\
     scr.write("#!/usr/bash\n")
     command_traverse = executable_path \
                    + "    " + input_data + "   "  + input_type \
-                   + " -z " + str(zmin)  + " -Z " + str(zmax)
+                   + " -z " + str(zmin)  + " -Z " + str(zmax) 
     if options.verbose:
         command_traverse += " -v "
     if options.debug:
@@ -315,8 +319,8 @@ def submit_job(script_path, base_command, jobid_in, options):
     prog_name = ""
     if re.search("Matrices",  script_path):
         prog_name = "ms3.matr" 
-    elif re.search("Merge_fusion",  script_path):
-        prog_name = "ms3.mergfus"
+    elif re.search("Merge",  script_path):
+        prog_name = "ms3.merge"
     elif re.search("Traverse",  script_path):
         prog_name = "ms3.travrs"
     elif re.search("Relabel",  script_path):
@@ -334,6 +338,8 @@ def submit_job(script_path, base_command, jobid_in, options):
     if re.search("qsub", options.submission_command):
         if jobid_in > 0:
             command += " -hold_jid " + str(jobid_in)
+        if prog_name == "ms3.travrs":
+            command += " -pe batch 4 "
         command += " " + script_path
         if not re.search("epilog", script_path):
             res = commands.getstatusoutput(command)
@@ -453,7 +459,7 @@ if __name__ == "__main__":
 
 #   Steps of processing:
 #   1) MS_F3D_GenerateMatrices.py
-#   2) MS_F3D_MergeFusionMatrices.py
+#   2) MS_F3D_MergeMatrices.py
 #   3) MS_F3D_TraverseFusionTrees.py
 #   4) MS_F3D_RelabelSegmentedData.py
 #   5) produce ouput (in HDF5 or other format)
@@ -483,9 +489,11 @@ if __name__ == "__main__":
             parser.print_usage()
             sys.exit(2)         
         input_dim = get_data_dimensions(input_data, input_type, options)
+        input_dim1 = [input_dim[0], input_dim[1], input_dim[2]-1]
         num_nodes, dict_node_xyz = \
-            MS_LIB_Dict.map_node_to_xyz(input_dim, input_label, ".txt", options)
+            MS_LIB_Dict.map_node_to_xyz(input_dim1, input_label+"_fusion", ".txt", options)
         if options.verbose:
+#           print "dict_node_xyz=", dict_node_xyz
             print "Input data dimensions: ", input_dim, " num_nodes=", num_nodes
             print "\ninput_label=", input_label   
             print "\nProcessing input data ..."

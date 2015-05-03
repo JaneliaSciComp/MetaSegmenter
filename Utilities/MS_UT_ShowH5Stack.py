@@ -39,7 +39,7 @@ while layer_id <= num_layers:
         image_data = dataset[:,:,layer_id-1,:]
 #           sys.exit("\nLayer contains > 1 image. Please, specify image_id\n")
 
-    print "Layer=", layer_id
+    print "Layer=", layer_id, " max_label=", numpy.max(image_data)
 
     plot_3 = 0
     if len(image_data.shape) == 2:

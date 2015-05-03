@@ -3,7 +3,10 @@
 
 import os, sys
 
-# --------------------------------------------------------------------
+ms_temp = os.environ['MS_TEMP'] # dir for intermediate data files
+ms_data = os.environ['MS_DATA'] # dir for intermediate data files
+
+# -----------------------------------------------------------------------
 
 # Given node id, determine z-layer id, ymin, ymax, xmin and xmax
 
@@ -58,8 +61,6 @@ def map_node_to_xyz(input_dim, input_label, output_suffix, options):
                     node += 1
                     dict_node_xyz[node] = \
                         [y, ymin, ymax, x, xmin, xmax, z]
-                    if options.verbose:
-                            print "node=",node
                 else: # process only previously unprocessed data
                     if int(options.nx) > 1 and int(options.ny) > 1:
                         output_file = \

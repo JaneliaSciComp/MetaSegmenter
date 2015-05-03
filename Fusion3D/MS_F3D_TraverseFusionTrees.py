@@ -11,57 +11,82 @@ ms_home = os.environ['MS_HOME']
 ms_data = os.environ['MS_DATA']
 ms_temp = os.environ['MS_TEMP']
 
+sys.setrecursionlimit(2000)
 recursion_depth = 0
-labels  = []  # global variable: 1st index = layer; 2nd = region; value = new label
+labels  = []  # global variable: 1st index = layer; 2nd = region in the layer; value = final label to be assigned to the region
 
 # -----------------------------------------------------------------------
 
 # Finalu/new labels are stored in the list labels
 # Trees have been employed for convenience of traversal
 class Tree(object):
-    def __init__(self, position, root_node, parent, label):
-        self.root_node             = root_node
+    def __init__(self, position, label):
         self.position              = position
         self.label                 = label
-        self.parent                = parent       
         self.children              = []         
 
     def traverse(self, dmap, umap, options):
         global recursion_depth
         global labels
-        k = self.position[0] # layer  id
-        r = self.position[1] # region id
+        z = int(self.position[0]) # layer  id
+        r = int(self.position[1]) # region id
         recursion_depth += 1
-#       print "recursion_depth=", recursion_depth, " current label=", self.label
    
         # Generate children at lower layer
-        if k < int(options.zmax)-1 and r in dmap[k].keys():
-            self.children = dmap[k][r]
-#           print "self.children lower layer=", self.children
-            if not hasattr(self.children , '__array__'):
-                self.children = [ self.children ]
-            for c in self.children:
-                if labels[k+1][c] == None:
-                    print "labels[", k+1, "][", c, "] was ", labels[k+1][c], " now ", self.label
-                    labels[k+1][c] = self.label
-#                   print "k=", k, " r=", r, " picking child ", c, " from lower layer, ", k+1
-                    t = Tree([k+1,c], self.root_node, self, self.label)
-                    t.traverse(dmap, umap, options) 
+        if z < int(options.zmax)-1 and r in dmap[z].keys():
+            self.children = dmap[z][r]
+            if len(self.children) > 0:
+                for c in self.children:
+                    if c not in labels[z+1].keys():           
+                        labels[z+1][c] = self.label
+                        print "z=",z," r=",r," dmap=",dmap[z][r]," c=",c,\
+                              " labels[",z+1,"][",c,"] now ",self.label
+                        t = Tree([z+1,c], self.label)
+                        t.traverse(dmap, umap, options) 
 
         # Genarate children at upper layer
-        if k > 0 and r in umap[k].keys():
-            self.children = umap[k][r]
-#           print "self.children upper layer=", self.children
-            if not hasattr(self.children , '__array__'):
-                self.children = [ self.children ]
-            for c in self.children:
-#               print "k=", k, " c=", c, " labels[k-1][c]=", labels[k-1][c]
-                if labels[k-1][c] == None:
-                    print "labels[", k-1, "][", c, "] was ", labels[k-1][c], " now ", self.label
-                    labels[k-1][c] = self.label
-#                   print "k=", k, " r=", r, " picking child ", c, " from upper layer, ", k-1
-                    t = Tree([k-1,c], self.root_node, self, self.label)
-                    t.traverse(dmap, umap, options)
+        if z > 0 and r in umap[z].keys():
+            self.children = umap[z][r]
+            if len(self.children) > 0:
+                for c in self.children:
+                    if c not in labels[z-1].keys():         
+                        labels[z-1][c] = self.label
+                        print "z=",z," r=",r," umap=",umap[z][r]," c=",c,\
+                              " labels[",z-1,"][",c,"] now ",self.label
+                        t = Tree([z-1,c], self.label)
+                        t.traverse(dmap, umap, options)
+
+# -----------------------------------------------------------------------
+
+def check_fusion_matrix(fmatrix):
+    print "\nFusion matrix shape=", fmatrix.shape
+    print "num_cols=", len(fmatrix[0])
+    print "num_rows=", len(fmatrix[:,0])
+    sum_col = [0,0,0]
+    sum_row = [0,0,0]
+    my_shape = fmatrix.shape
+    # Explore rows
+    for i in range(1, my_shape[0]):
+        row = fmatrix[i][1:]
+        s = (row == 1).sum()
+        if s <= 2:
+            sum_col[s] +=1
+        else:
+            print "row #", i, " sum=", s
+        if not len(row) == my_shape[1]-1:
+            print "...row ", i, " contains ", len(row), " elements, not", my_shape[1]-1
+    print "sum_col=", sum_col
+    # Explore columns
+    for j in range(1, my_shape[1]):
+        col = fmatrix[1:,j]
+        s = (col == 1).sum()
+        if s <= 2:
+            sum_row[s] +=1
+        else:
+            print "col #", j, " sum=", s
+        if not len(col) == my_shape[0]-1:
+            print "...col ", j, " contains ", len(col), " elements, not", my_shape[0]-1
+    print "sum_row=", sum_row
 
 # -----------------------------------------------------------------------
 
@@ -70,79 +95,91 @@ def initialize_labels_and_generate_maps(input_label, options):
     global labels
 
     # Generate maps
-    dmap   = [  ]
-    umap   = [{}] 
-    fmatrix= [  ]
+    dmap   = [  ]     # list of "down map" hashes, or the maps of a region in a given layer to region(s) of adjacent lower layer 
+    umap   = [{}]     # list of "up   map" hashes, or the maps of a region in a given layer to region(s) of adjacent upper layer 
+    fmatrix= [  ]     # list of fusion matrices produced by the previous step of processing ( by MS_F3D_MergeMatrices.py )
     k = 0
     for z in range(int(options.zmin), int(options.zmax)):
         labels.append({})
         dmap.append({}) # initializing a hash at layer k
         umap.append({}) # initializing a hash at layer k
-        if z < int(options.zmax):
+        if z < int(options.zmax)-1:
             input_fpath = os.path.join(ms_temp, input_label + "_fusion" +\
                                        "_z" + str(k+1) + ".txt")
             if options.verbose:
                 print "Loading unified fusion matrix ", input_fpath
             fmatrix.append(numpy.loadtxt(input_fpath, delimiter='\t'))
-            print "Labels=", fmatrix[k][1:,0]
+            num_rows = int(fmatrix[k][0][0])-1 # 1st row in sparse fmatrix indicates shape of original fmatrix
+            num_cols = int(fmatrix[k][0][1])-1
+            dmap.append({})
+            umap.append({})
+            for r in range(1, num_rows+1):
+                dmap[k  ][r] = []
+            for c in range(1, num_cols+1):
+                umap[k+1][c] = []
             my_shape = fmatrix[k].shape
             for i in range(1, my_shape[0]):
-                # Initialize labels at layer k
-                labels[k][i] = None
-                dmap[k  ][i] = []
-                for j in range(1, my_shape[1]):
-                    if fmatrix[k][i][j] == 1:
-                        dmap[k  ][i] =  j # map from current to next    layer 
-            for j in range(1, my_shape[1]):
-                # Initialize labels at layer k
-                umap[k+1][j] = []
-                for i in range(1, my_shape[0]):
-                    if fmatrix[k][i][j] == 1:
-                        umap[k+1][j] =  i # map from next    to current layer
+                r = int(fmatrix[k][i][0])
+                c = int(fmatrix[k][i][1])
+                dmap[k  ][r].append(c)             
+                umap[k+1][c].append(r)
         else:
             # Process the last layer
             dmap.append({})
-            for j in range(1, my_shape[1]):
-                # Initialize labels at last layer
-                labels[k][j] = None
         k = k + 1
-    return (dmap, umap, fmatrix)
+        sys.stdout.flush()
+    return (dmap, umap)
 
 # -----------------------------------------------------------------------
 
-def produce_fusion_trees(dmap, umap, fmatrix, options):
+def produce_fusion_trees(dmap, umap, options):
     global labels
     global recursion_depth
-    trees = []
-    k = 0  # layer id
+    num_trees = 0;
     print "options.zmax=", options.zmax, " options.zmin=", options.zmin
+    current_label = 1
     for z in range(int(options.zmin), int(options.zmax)):
         # Generate trees with root nodes at layer z
-        print "int(max(fmatrix[k][1:][0]))=", int(max(fmatrix[k][1:][0]))
-        print " In produce fusion trees Labels=", fmatrix[k][1:,0]
-        for r in range(1, int(max(fmatrix[k][1:,0]))):         
-            if labels[k][r] == None:
-                print "Processing label ", r, " at layer ", k , " labels[k][r] was=", labels[k][r], " became=", r
-                labels[k][r] = r
-                recursion_depth = 0
-                t = Tree([k,r], [k,r], None, r)
-                t.traverse(dmap, umap, options)
-        k = k + 1
-    return trees
+        if z < int(options.zmax)-1:
+            for r in dmap[z].keys():       # r is the current label    
+                if not r in labels[z].keys():         
+                    print "Processing label ", r, " at layer ", z , " labels[z][r] was None, became=", r
+                    labels[z][r] = current_label
+                    recursion_depth = 0
+                    t = Tree([z,r], current_label)     # start new tree
+                    t.traverse(dmap, umap, options)
+                    num_trees += 1
+                    print "\n"
+                    print "After traversal of tree #", num_trees, " starting at layer=", z, " recursion_depth=", recursion_depth
+                    print "\n*************************************************"
+                    current_label = current_label + 1
+        else:
+            for r in umap[z].keys():
+                if not r in labels[z].keys():         
+                    print "Processing label ", r, " at layer ", z , " labels[z][r] was None, became=", r
+                    labels[z][r] = current_label
+                    recursion_depth = 0
+                    t = Tree([z,r], current_label)     # start new tree
+                    t.traverse(dmap, umap, options)
+                    num_trees += 1
+                    print "\n"
+                    print "After traversal of tree #", num_trees, " starting at layer=", z, " recursion_depth=", recursion_depth
+                    print "\n*************************************************"
+                    current_label = current_label + 1
+    return num_trees
 
 # -----------------------------------------------------------------------
 
 def output_new_labels(input_label, options):
     global labels
-    print "len(labels)=", len(labels)
-    for k in range(0, len(labels)):
-        labels_list = [ 0 ]
-        for i in range(1, max(labels[k].keys())):
-            labels_list.append(int(labels[k][i]))
-        output_path = os.path.join(ms_temp, input_label + "_labels" +\
-                                       "_z" + str(k+1) + ".txt")
-        print "k=", k, " saving labels ",  labels_list
-        numpy.savetxt(output_path, labels_list, fmt='%10u', delimiter='\t')
+    labels_list = []
+    for z in range(0, len(labels)):
+        keys = sorted(labels[z].keys())
+        for i in range(0, len(keys)):
+            k = keys[i]
+            labels_list.append([z, k, labels[z][k]])
+    output_path = os.path.join(ms_temp, input_label + "_labels.txt")
+    numpy.savetxt(output_path, labels_list, fmt='%10u', delimiter='\t')
  
 # -----------------------------------------------------------------------
 
@@ -163,10 +200,10 @@ if __name__ == "__main__":
             input_label = "ms3_" + input_data.split('.')[0][4:]
         if options.verbose:
             print "Generating maps ..."
-        dmap, umap, fmatrix = initialize_labels_and_generate_maps(input_label, options)
+        dmap, umap = initialize_labels_and_generate_maps(input_label, options)
         if options.verbose:
             print "Generating fusion trees ..."
-        trees      = produce_fusion_trees(dmap, umap, fmatrix, options)      
+        num_trees = produce_fusion_trees(dmap, umap, options)      
         output_new_labels(input_label, options)
     else:
         print usage

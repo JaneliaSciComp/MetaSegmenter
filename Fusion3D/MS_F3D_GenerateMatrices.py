@@ -9,7 +9,6 @@ from scipy import misc
 import httplib
 import h5py
 from pydvid import voxels, general
-from   zibopt import scip
 
 import MS_LIB_Dict
 import MS_LIB_Options
@@ -47,9 +46,15 @@ def generate_overlap_matrix(image_fragment1, image_fragment2, options):
     overlap_matrix[0 ,1:] = labels2 
     for i in range(0, len(labels1)):
         for j in range(0, len(labels2)):
+            area1 = (fragment_matrix1 == int(labels1[i])).sum()
+            area2 = (fragment_matrix2 == int(labels2[j])).sum()
             overlap_matrix[i+1, j+1] = \
                 ((fragment_matrix1 == int(labels1[i]))  & \
                  (fragment_matrix2 == int(labels2[j]))).sum()
+            if  overlap_matrix[i+1, j+1] < float(options.overlap_fraction) * min(area1, area2):
+                overlap_matrix[i+1, j+1] = 0.
+            if  overlap_matrix[i+1, j+1] < float(options.overlap_area):
+                overlap_matrix[i+1, j+1] = 0.
             if options.verbose and options.debug and overlap_matrix[i+1, j+1] > 0:
                 print "i=", i, "/", len(labels1), " j=", j, "/", len(labels2), \
                       " overlap=", overlap_matrix[i+1, j+1]
@@ -62,9 +67,18 @@ def read_input_data(input_data, input_type, ymin, ymax, xmin, xmax, \
     if input_type == "file":
         input_path = os.path.join(ms_data, input_data)
         f  = h5py.File(input_path, 'r')
-        key = f.keys()[0]
-        image_data1 = numpy.transpose(f[key][zmin]) # read one chunk
-        image_data2 = numpy.transpose(f[key][zmax-1])
+#       key = f.keys()[0]
+#       image_data1 = numpy.transpose(f[key][zmin]) # read one chunk
+#       image_data2 = numpy.transpose(f[key][zmax-1])
+        dataset = numpy.transpose(f['/main'])
+        data_shape = dataset.shape
+        num_layers = dataset.shape[2]
+        image_data1= dataset[:,:,zmin]
+        image_data2= dataset[:,:,zmin+1]
+        if options.verbose:
+            print "num_layers=", num_layers
+            print "numpy.max(image_data1)=", numpy.max(image_data1)
+            print "numpy.max(image_data2)=", numpy.max(image_data2)
     elif input_type == "directory":
         files = []
         i = 0
@@ -79,8 +93,8 @@ def read_input_data(input_data, input_type, ymin, ymax, xmin, xmax, \
             i = i+1
         im1 =  misc.imread(files[0])
         data_shape = misc.imread(files[0]).shape
-        image_data1 = numpy.zeros(data_shape, dtype="float")
-        image_data2 = numpy.zeros(data_shape, dtype="float")
+        image_data1 = numpy.zeros(data_shape, dtype="float")               
+        image_data2 = numpy.zeros(data_shape, dtype="float")               
         i = 0
         for file in files:
             im = misc.imread(file)
@@ -113,99 +127,18 @@ def output_overlap_matrix(overlap_matrix, input_label, x, y, z, options):
 
     # Ourput data
     if options.verbose:
-        print "Writing overlap_matrix to file", output_path
-
-    if options.verbose:
         print "Storing the overlap matrix in file ", output_path
     numpy.savetxt(output_path, overlap_matrix, fmt='%10u', delimiter='\t')
 
 # -----------------------------------------------------------------------
 
-def generate_fusion_matrix(overlap_matrix, options):
-    solver = scip.solver()# quiet=False)
-    matrix_shape = overlap_matrix.shape
-    fusion_matrix = numpy.zeros(matrix_shape)
-    # Setting the boundary elements, which are label ids
-    for i in range(0, matrix_shape[0]):
-        fusion_matrix[i][0] = overlap_matrix[i][0]
-    for j in range(0, matrix_shape[1]):
-        fusion_matrix[0][j] = overlap_matrix[0][j]
-
-    # Define SCIP variables
-    dict_map = {}
-    variables = []
-    k = 0
-    for i in range(1, matrix_shape[0]):
-        for j in range(1, matrix_shape[1]):
-            if overlap_matrix[i][j] > 0:
-                variables.append(solver.variable(scip.BINARY))
-                dict_map[k] = [i, j]
-                k = k + 1
-
-    # Define SCIP constraints
-    # 1) sum of elements of fusion_matrix in each row is <= 2
-    for i in range(1, matrix_shape[0]):
-        nz_linear_inds = []
-        for c in range(1, matrix_shape[1]):
-            if overlap_matrix[i][c] == 0:
-                continue
-            for key, value in dict_map.iteritems():
-                if [i, c] == value:
-                    nz_linear_inds.append(key)
-        if len(nz_linear_inds) > 0:
-            if options.verbose and options.debug:
-                print "i=", i, " nz_linear_inds=", nz_linear_inds
-            solver.constraint( sum(variables[k] for k in nz_linear_inds) <= 2 )# allow binary branching
-
-    # 2) sum of elements of fusion_matrix in each column is <= 2
-    t_overlap_matrix = numpy.matrix.transpose(overlap_matrix)
-    for i in range(1, matrix_shape[1]):
-        nz_linear_inds = []
-        for r in range(1, matrix_shape[0]):
-            if t_overlap_matrix[i][r] == 0:
-                continue
-            for key, value in dict_map.iteritems():
-                if [i, r] == value:
-                    nz_linear_inds.append(key)
-        if len(nz_linear_inds) > 0:
-            if options.verbose and options.debug:
-                print "j=", i, " nz_linear_inds=", nz_linear_inds
-            solver.constraint( sum(variables[k] for k in nz_linear_inds) <= 2 ) # allow binary branching
-
-    # Define the objective
-#   print "dict_map.keys()=", dict_map.keys()
-#   print "dict_map.values()=", dict_map.values()
-    if options.verbose and options.debug:
-        print "len(dict_map.keys())=", len(dict_map.keys())
-    solution = solver.maximize(objective =  sum(overlap_matrix[dict_map[k][0]][dict_map[k][1]]*variables[k] \
-                                            for k in dict_map.keys()))
-
-    # Restore the fusion_matrix
-    for i in range(1, matrix_shape[0]):
-        for j in range(1, matrix_shape[1]):
-            if overlap_matrix[i][j] > 0:
-                for key, value in dict_map.iteritems():
-                    if [i, j] == value:
-                        fusion_matrix[i][j] = solution[variables[key]]
-                if fusion_matrix[i][j] > 0:
-                    if options.verbose and options.debug:
-                        print "i=", i, " j=", j, " fusion_matrix=", fusion_matrix[i][j]
-    return fusion_matrix
-
-# -----------------------------------------------------------------------
-
-def output_fusion_matrix(fusion_matrix, input_label, x, y, z, options):
-
-    if len(options.output_path) == 0:
-        output_path = os.path.join(ms_temp, input_label + "_fusion" +\
-                                   "_y" + str(y+1) +\
-                                   "_x" + str(x+1) + "_z" + str(z+1) + ".txt")
-    else:
-        output_path = options.output_path
-    numpy.savetxt(output_path, fusion_matrix, fmt='%10u', delimiter='\t')
-    if options.verbose:
-        print "Saving the fusion matrix in file: ", output_path
-    numpy.savetxt(output_path, fusion_matrix, fmt='%10u', delimiter='\t')
+def convert_to_sparse_format(omatrix):
+    sparse_omatrix = [ omatrix.shape[0]-1,  omatrix.shape[1]-1, 0 ]
+    for i in range(1,omatrix.shape[0]):
+        for j in range(1, omatrix.shape[1]):
+            if omatrix[i][j] == 1:
+                sparse_omatrix.append([omatrix[i,0], omatrix[0,j], omatrix[i,j]])
+    return numpy.array(sparse_omatrix)
 
 # -----------------------------------------------------------------------
 
@@ -218,12 +151,10 @@ def process_inputs(input_data, input_type, dict_node_xyz, options):
         input_label = "ms3_" + input_data.split('.')[0][4:]
 
     node = int(options.node)
-    if options.verbose:
-        print "node=", node, " type=", type(node)
     if node > 0:
         y, ymin, ymax, x, xmin, xmax, z = dict_node_xyz[node]
         zmin = z
-        zmax = z + 1
+        zmax = z+1
     else:
         ymin = 0
         ymax = int(options.ydim)
@@ -247,11 +178,21 @@ def process_inputs(input_data, input_type, dict_node_xyz, options):
         print "\n...Generating overlap matrix..."
     overlap_matrix = generate_overlap_matrix(image_fragment1, image_fragment2, \
                                              options) 
-    output_overlap_matrix(overlap_matrix, input_label, x, y, zmin, options)
+#   print "overlap_matrix=\n", overlap_matrix
+    sparse_overlap_matrix = convert_to_sparse_format(overlap_matrix)
+    output_overlap_matrix(sparse_overlap_matrix, input_label, \
+                          x, y, zmin, options)
 
-    fusion_matrix = generate_fusion_matrix(overlap_matrix, options)
+# -----------------------------------------------------------------------
 
-    output_fusion_matrix(fusion_matrix, input_label, x, y, zmin, options)
+def convert_to_sparse_format(omatrix):
+    sparse_matrix = [[ omatrix.shape[0]-1, omatrix.shape[1]-1, 0]]
+    for i in range(1,omatrix.shape[0]):
+        for j in range(1, omatrix.shape[1]):
+            if omatrix[i][j] > 0: 
+                sparse_matrix.append([omatrix[i,0],omatrix[0,j],omatrix[i,j]])
+    print "sparse_matrix=\n", sparse_matrix
+    return numpy.array(sparse_matrix)
 
 # -----------------------------------------------------------------------
 
@@ -274,9 +215,11 @@ if __name__ == "__main__":
         else:
             input_label = "ms3_" + os.path.basename(input_data).split('.')[0][4:]
 
+        input_dim1 = [input_dim[0], input_dim[1], input_dim[2]-1];
         num_nodes, dict_node_xyz = \
-            MS_LIB_Dict.map_node_to_xyz(input_dim, input_label, ".txt", options)
+            MS_LIB_Dict.map_node_to_xyz(input_dim1, input_label+"_fusion", ".txt", options)
         if options.verbose:
+#           print "dict_node_xyz=", dict_node_xyz
             print "In MS_F3D_GenerateOverlapMatrix.py: num_nodes=", num_nodes
         if len(options.output_path) == 0 and len(options.node) == 0:
             print "\nPlease, specify the output name (with option -o)"

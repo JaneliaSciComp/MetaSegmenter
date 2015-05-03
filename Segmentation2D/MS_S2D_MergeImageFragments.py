@@ -55,8 +55,6 @@ def process_inputs_xmerge(input_label, xdim, ydim, node, dict_nodes_xmerge, opti
                      str(options.dx) + "   " + str(options.verbose) + " " +\
                      str(ydim)       + "   " + str(xdim)            + " " +\
                      output_path 
-    if options.verbose:
-        print "command_xmerge=", command_xmerge
     command_rm     = "rm -f " 
     for x in range(0, int(options.nx)):
         input_path = os.path.join(ms_temp,\
@@ -68,6 +66,7 @@ def process_inputs_xmerge(input_label, xdim, ydim, node, dict_nodes_xmerge, opti
 
     if options.verbose:
         print "In MS_S2D_MergeImageFragments.py/process_inputs_xmerge: "
+        print "command_xmerge=", command_xmerge
         print "command_rm=", command_rm
  
     if not options.debug:
@@ -102,6 +101,7 @@ def process_inputs_ymerge(input_label, xdim, ydim, node, dict_nodes_ymerge, opti
 
     if options.verbose:
         print "In MS_S2D_MergeImageFragments.py/process_inputs_ymerge: "
+        print "command_ymerge=", command_ymerge
         print "command_rm=", command_rm
 
     if not options.debug:
