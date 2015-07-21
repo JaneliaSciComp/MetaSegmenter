@@ -85,6 +85,9 @@ function Ibwn = segment_neurons(Igr, M_thr, options)
     Ibw(Igr > M_thr) = logical(1);
     clear Igr;
 
+    orig_imsize = size(Ibw);
+    scale = options.resize; 
+    Ibw = imresize(Ibw, scale);
     Ibw = bwareaopen(Ibw,20);
     imwrite(Ibw, 'Ibw1_MS_S2D_SegmentNeurons.tiff');
     if options.dispOn
@@ -106,6 +109,7 @@ function Ibwn = segment_neurons(Igr, M_thr, options)
         MS_S2D_ShowImage(Ibwn, 'Black-white image (Ibwn)', options);
     end
 
+    Ibwn = imresize(Ibwn, orig_imsize);
     % Optionally output results to file
     if length(options.outBW) > 0
         imwrite(Ibwn, options.outBW);

@@ -20,6 +20,7 @@ classdef MS_S2D_InputParser < inputParser
         defaultOutSeg    = ''; % name for output segmentation file
         defaultOutRGB    = ''; % name for output colored labels file
         defaultHistogram = 0;
+        defaultScale     = 1;
     end
 
     methods
@@ -58,6 +59,7 @@ classdef MS_S2D_InputParser < inputParser
                 obj.defaultDX        = num2str(obj.defaultDX);          
                 obj.defaultDY        = num2str(obj.defaultDY);                
                 obj.defaultMaxSize   = num2str(obj.defaultMaxSize);
+                obj.defaultScale     = num2str(obj.defaultScale);
             end
 
             % Optional parameters
@@ -74,6 +76,7 @@ classdef MS_S2D_InputParser < inputParser
             obj.addParamValue('sx',      obj.defaultSubX);
             obj.addParamValue('sy',      obj.defaultSubY);
             obj.addParamValue('maxSize', obj.defaultMaxSize);
+            obj.addParamValue('resize',  obj.defaultScale);  
             obj.addParamValue('outBW',   obj.defaultOutBW')
             obj.addParamValue('outSeg',  obj.defaultOutSeg);
             obj.addParamValue('outRGB',  obj.defaultOutRGB);

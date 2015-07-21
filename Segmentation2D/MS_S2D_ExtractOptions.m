@@ -19,6 +19,7 @@ function options = MS_S2D_ExtractOptions(p, fracBlack, fracBlack2)
         options.sx        = p.Results.sx;
         options.sy        = p.Results.sy;
         options.maxSize   = p.Results.maxSize;
+        options.resize    = p.Results.resize;
     else
         options.compiled_code = 1;    % compiled code
         options.fracBlack     =       str2double(fracBlack);
@@ -36,6 +37,7 @@ function options = MS_S2D_ExtractOptions(p, fracBlack, fracBlack2)
         options.sx            = int32(str2double(p.Results.sx));
         options.sy            = int32(str2double(p.Results.sy));
         options.maxSize       = int32(str2double(p.Results.maxSize));
+        options.resize        = int32(str2double(p.Results.resize)); 
     end
     return
 

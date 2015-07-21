@@ -59,19 +59,6 @@ def compile_code(options):
             print "command_chmod= ", command_chmod, "\n"
         os.system(command_chmod) 
 
-    print "\nCompiling MS_S2D_ProduceSegmentationFile.m ..."
-    input_path = os.path.join(ms_home,"Segmentation2D", \
-                              "MS_S2D_ProduceSegmentationFile.m")
-    command2 = "mcc -m -N -R -singleCompThread " + input_path + \
-               " -o MS_S2D_ProduceSegmentationFile " +\
-               " -d " +  os.path.join(ms_home, "Bin")
-    if options.verbose:
-        command2 += " -v "
-        print "command= ", command2, "\n"
-    os.system(command2)
-    os.system("chmod +x " + os.path.join(ms_home, "Bin", \
-              "MS_S2D_ProduceSegmentationFile"))
-
 # -----------------------------------------------------------------------
 
 def is_int(my_sting):     
@@ -129,9 +116,10 @@ def get_input_type(input_data, options):
 def get_data_dimensions(input_data, input_type, options):
     input_dim = [0,0,0]
     if input_type == "file":
+        input_data_path = os.path.join(ms_data,input_data)
         if re.search(".h5", input_data):
             try:
-                f  = h5py.File(os.path.join(ms_data,input_data), 'r')
+                f  = h5py.File(input_data_path, 'r')
                 key = f.keys()[0]
                 image_data = numpy.transpose(f[key])
                 input_dim = image_data.shape[0:3]
@@ -140,10 +128,11 @@ def get_data_dimensions(input_data, input_type, options):
                 sys.exit(2)
         elif re.search(".tif", input_data):
             try:
-                image_data = numpy.transpose(tiff.imread(input_data))               
-                input_dim = image_data.shape[0:3]
+                image_data = numpy.transpose(tiff.imread(input_data_path))               
+                input_dim = image_data.shape
+                print "In get_data_dimensions: input_dim=", input_dim
             except:
-                print "Input file",input_data,"is not a tiff stack\n"
+                print "Input file",input_data_path,"is not a tiff stack\n"
                 sys.exit(2)
         else:
             print "Unsupported input file\n"                
@@ -239,7 +228,8 @@ def create_data_extraction_and_segmentation_job(outfolderpath, \
         " -Y " + str(options.ny)   + " -y " + str(options.dx) + \
         " -z " + str(zmin)         + " -Z " + str(zmax) +\
         " -l " + options.nlen      + " -w " + options.nwid + \
-        " -f " + my_fracBlack      + " -F " + my_fracBlack2           
+        " -f " + my_fracBlack      + " -F " + my_fracBlack2 +\
+        " -r " + str(options.resize_scale)          
     if options.unprocessed:
         command_extr_data += " -U "
         command_segm_data += " -U "
@@ -305,7 +295,8 @@ def create_merging_job(mdir, outfolderpath, input_data, input_type,\
                       + " -X " + str(options.nx)   \
                       + " -Y " + str(options.ny)   \
                       + " -z " + str(zmin) \
-                      + " -Z " + str(zmax) 
+                      + " -Z " + str(zmax) \
+                      + " -i " + str(options.uint) 
     if options.verbose:
         command_merge += " -v "
     if options.debug:
@@ -542,7 +533,8 @@ def process_input_data_low_level(dict_node_xyz, input_label,options):
                    " verbose "     + str(int(options.verbose)) + " " + \
                    " ny      "     + options.nlen              + " " + \
                    " nx      "     + options.nwid              + " " + \
-                   " outBW   "     + output_file
+                   " outBW   "     + output_file               + " " + \
+                   " resize  "     + str(options.resize_scale)
     command_rm   = "rm -f " + input_file
     if int(options.msize) < sys.maxint:             
         command_segm +=  ' maxSize '    + options.msize   
@@ -578,7 +570,7 @@ if __name__ == "__main__":
         input_type = get_input_type(input_data, options)
         input_label = "ms2_DVID"
         if input_type in ["file", "directory"]:
-            input_label = "ms2_" + input_data
+            input_label = "ms2_" + input_data.split('.')[0]
         if input_type in ["file", "directory", "DVID"]:
             if options.verbose and int(options.node) == 0:
                 print "Input type=", input_type

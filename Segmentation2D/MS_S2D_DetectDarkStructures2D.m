@@ -86,6 +86,9 @@ function Ibwd = segment_dark_structures(Igr, M_thr, M_thr2, options)
     Ibw(Ibw2) = logical(0); % subtract Ibw2 from Ibw
     clear Ibw2; 
 
+    orig_imsize = size(Ibw);
+    scale = options.resize;
+    Ibw = imresize(Ibw, scale);
     Ibw = bwareaopen(Ibw,20);
     Ibw = MS_S2D_AddBoundaryPadding(Ibw, 1);
     % Ibw  = imfill(Ibw, 'holes');
@@ -97,7 +100,7 @@ function Ibwd = segment_dark_structures(Igr, M_thr, M_thr2, options)
     Ibwc = imcomplement(Ibw);
     clear Ibw;
     Ibwc = imerode(Ibwc, strel('disk', 2));
-    Ibwc = bwareaopen(Ibwc,300);
+    Ibwc = bwareaopen(Ibwc,round(300*scale));
     if options.dispOn | options.dispOn2
         MS_S2D_ShowImage(Ibwc, 'Complement of dilated black-white image (Ibwc)', options);
     end
@@ -114,12 +117,13 @@ function Ibwd = segment_dark_structures(Igr, M_thr, M_thr2, options)
     Ibwcdc = imcomplement(Ibwcd);
     clear Ibwcd;
     Ibwcdc = imerode(Ibwcdc, strel('disk', 4));
-    Ibwcdc = bwareaopen(Ibwcdc,300);
+    Ibwcdc = bwareaopen(Ibwcdc,round(300*scale));
     Ibwcdc = imfill(Ibwcdc, 'holes');
     Ibwcdc = imdilate(Ibwcdc, strel('disk', 3));
     Ibwd  = imfill(Ibwcdc, 'holes');
     clear Ibwcdc;
 
+    Ibwd = imresize(Ibwd, orig_imsize);
 %   Ibwd   = MS_S2D_AddBoundaryPadding(Ibwd, 0);
     if options.dispOn | options.dispOn2
         MS_S2D_ShowImage(Ibwd, 'Final (dilated, inversed, filled and eroded) black-white image (Ibwd)', options);
@@ -137,6 +141,7 @@ function output_usage_message()
     disp('    closeAll     - close previous image when displayong next (default=1)');
     disp('    nx, ny       - numbers of section to which subdivide the image (defaults=1)');
     disp('    ix, iy       - ids of the section to be processed/shown (defaults=1)');
+    disp('    resize       - scale to be used when resizing BW image (default = 1)');
     disp('    outBW        - name of output black/white image file (default='', no output)');
     disp('    outSeg       - name of output segmentation file (default='', no output)');
     disp('    outRGB       - name of output colored labels file (default='', no output)');
