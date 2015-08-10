@@ -20,6 +20,7 @@ from PIL import Image
 
 import MS_LIB_Dict 
 import MS_LIB_Options
+import MS_LIB_IO
 
 ms_home = os.environ['MS_HOME'] # where source code is located
 ms_data = os.environ['MS_DATA'] # dir for initial input data and final output 
@@ -96,92 +97,6 @@ def is_DVID_subvolume(input_data, options):
     return is_subvolume
 
 # -----------------------------------------------------------------------------
-
-def get_input_type(input_data, options):
-    input_type = ""
-    if   os.path.isfile(input_data) or \
-         os.path.isfile(os.path.join(ms_data,input_data)) or \
-         os.path.isfile(os.path.join(ms_temp,input_data)):
-        input_type = "file"
-    elif os.path.isdir(input_data) or \
-         os.path.isdir(os.path.join(ms_data,input_data)) or \
-         os.path.isdir(os.path.join(ms_temp,input_data)):
-        input_type = "directory"
-    elif is_DVID_subvolume(input_data, options):
-        input_type = "DVID"
-    return input_type
-
-# ----------------------------------------------------------------------
-
-def get_data_dimensions(input_data, input_type, options):
-    input_dim = [0,0,0]
-    if input_type == "file":
-        input_data_path = os.path.join(ms_data,input_data)
-        if re.search(".h5", input_data):
-            try:
-                f  = h5py.File(input_data_path, 'r')
-                key = f.keys()[0]
-                image_data = numpy.transpose(f[key])
-                input_dim = image_data.shape[0:3]
-            except:
-                print "Input file",input_data,"is not an HDF5 stack\n"
-                sys.exit(2)
-        elif re.search(".tif", input_data):
-            try:
-                image_data = numpy.transpose(tiff.imread(input_data_path))               
-                input_dim = image_data.shape
-                print "In get_data_dimensions: input_dim=", input_dim
-            except:
-                print "Input file",input_data_path,"is not a tiff stack\n"
-                sys.exit(2)
-        else:
-            print "Unsupported input file\n"                
-            sys.exit(2)
-    elif input_type == "directory":
-        files = sorted(os.listdir(os.path.join(ms_data,input_data)))
-        num_files = 0
-        image_size = []
-        for i in range(0, len(files)):
-            ifile = files[i]
-            myfile = os.path.join(os.path.join(ms_data,input_data), ifile)
-            try:
-                image_shape = Image.open(myfile).size
-            except:
-                myfile = os.path.join(os.path.join(ms_temp,input_data), ifile)
-            try:
-                if re.search(".png",  myfile) or \
-                   re.search(".tif",  myfile) or \
-                   re.search(".jpeg", myfile):
-                    num_files = num_files + 1
-                    if num_files == 1:
-#                       print "Reading first file", myfile," ..."
-#                       image_shape = misc.imread(myfile).shape
-                        try:
-                            # Using PIL
-                            image_shape = Image.open(myfile).size           
-                        except:
-                            try:
-                                # Using scipy
-                                image_shape = misc.imread(myfile).shape
-                            except:
-                                try:
-                                    # Using Matplotlib
-                                    image_shape = matplotlib.image.imread(myfile, format = 'png').shape
-                                except:
-                                    print "Unable to read image file", myfile
-                                    sys.exit(2)
-                    input_dim[0:2] = [image_shape[1],image_shape[0]] # transpose
-            except:
-                continue
-        input_dim[2] = min(num_files, int(options.zmax)-int(options.zmin))
-    elif input_type == "DVID":
-        ranges = input_data[1:len(input_data)-1].split(",")
-        for i in range(0,3):
-            coords = ranges[i].split(":")
-            input_dim[i] = int(coords[1]) - int(coords[0]) 
-    return input_dim
-
-# ----------------------------------------------------------------------
 
 # Extract fragment data and segment the fragment
 
@@ -567,7 +482,7 @@ if __name__ == "__main__":
         compile_code(options)
     if len(args) == 1:
         input_data = args[0]
-        input_type = get_input_type(input_data, options)
+        input_type = MS_LIB_IO.get_input_type(input_data, options)
         input_label = "ms2_DVID"
         if input_type in ["file", "directory"]:
             input_label = "ms2_" + input_data.split('.')[0]
@@ -578,7 +493,7 @@ if __name__ == "__main__":
             print "\nIncorrectly specified input data", input_data, "\n"
             parser.print_usage()
             sys.exit(2)         
-        input_dim = get_data_dimensions(input_data, input_type, options)
+        input_dim = MS_LIB_IO.get_data_dimensions(input_data, input_type, options)
         if options.verbose:
             print "Input data dimensions: ", input_dim
         num_nodes, dict_node_xyz = \

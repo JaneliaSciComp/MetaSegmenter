@@ -5,6 +5,7 @@ import os, sys
 ms_home = os.environ['MS_HOME'] # where source code is located
 ms_data = os.environ['MS_DATA'] # dir for initial input data and final output
 ms_temp = os.environ['MS_TEMP'] # dir for intermediate data files
+rh_home = os.environ['RHOANA_HOME'] # where source code is located
 
 # ----------------------------------------------------------------------
 
@@ -184,5 +185,24 @@ def CreateH5Stack_command_line_parser(parser):
     parser.add_option("-Z", "--zmax",dest="zmax",help="max z-layer to be processed", metavar="zmax", default=sys.maxint)
     return parser
 
+# ----------------------------------------------------------------------
 
-
+def RhoanaSegmentation2D_command_line_parser(parser):
+    parser.add_option("-A", "--project",dest="project_code",help="code to be used with qsub",metavar="project_code", default="flyTEM")
+    parser.add_option("-c", "--classifier",dest="classifier",help="classifier file",metavar="classifier", \
+                                           default=os.path.join(rh_home, "rhoana", "ClassifyMembranes", "GB_classifier.txt"))
+    parser.add_option("-D", "--debug",dest="debug",help="don't delete intermediate outputs", action="store_true", default=False)
+    parser.add_option("-e", "--executable",dest="executable",help="executable",metavar="executable",\
+                                           default=os.path.join(rh_home, "rhoana", "ClassifyMembranes", "classify_image"))    
+    parser.add_option("-i", "--inverse_probabilities", action="store_true",dest="inverse_probabilities",help="output membrane probabilities", default=False)
+    parser.add_option("-m", "--memprob",dest="memprobs",help="membrane probabilities dir name",metavar="membprobs",default="membranes")
+    parser.add_option("-o", "--output_folder",dest="output_folder",help="output folder",metavar="output_folder",default=ms_data)
+    parser.add_option("-p", "--processing_start",dest="processing_start",help="start processing from probs(=1) or segm(=2)",\
+                      metavar="processing_start",default=1)
+    parser.add_option("-P", "--processing_end",dest="processing_end",help="complete processing at step probs(=1) or segm(=2) ",\
+                      metavar="processing_end",default=2)
+    parser.add_option("-t", "--output_tag",dest="output_tag",help="output tag, default=input_data",metavar="output_tag",default="")
+    parser.add_option("-v", "--verbose",action="store_true",dest="verbose",help="increase the verbosity level of output",default=False)
+    parser.add_option("-z", "--zmin",dest="zmin",help="min z-layer to be processed", metavar="zmin", default=0)
+    parser.add_option("-Z", "--zmax",dest="zmax",help="max z-layer to be processed", metavar="zmax", default=sys.maxint)
+    return parser
