@@ -206,3 +206,31 @@ def RhoanaSegmentation2D_command_line_parser(parser):
     parser.add_option("-z", "--zmin",dest="zmin",help="min z-layer to be processed", metavar="zmin", default=0)
     parser.add_option("-Z", "--zmax",dest="zmax",help="max z-layer to be processed", metavar="zmax", default=sys.maxint)
     return parser
+
+# ----------------------------------------------------------------------
+
+def RhoanaTrainClassifier_command_line_parser(parser):
+    parser.add_option("-A", "--project",dest="project_code",help="code to be used with qsub",metavar="project_code", default="flyTEM")
+    parser.add_option("-c", "--classifier_type",dest="classifier_type",help="GB(=gradient boosting) or RF(=random forest)",metavar="classifier_type",default="GB")
+    parser.add_option("-D", "--debug",dest="debug",help="don't delete intermediate outputs", action="store_true", default=False)
+    parser.add_option("-f", "--features",dest="features",help="name of a folder containing computed features",metavar="features",
+                                           default=os.path.join(ms_data,"features_150324_pedunculus"))
+    parser.add_option("-M", "--membrane_labels",dest="membrane_labels",help="folder containing membrane training labels",\
+                                                metavar="membrane_labels",\
+                                                default=os.path.join(ms_data,"membrane_labels_150324_pedunculus"))
+    parser.add_option("-m", "--mitochondria_labels",dest="mitochondria_labels",help="folder containing mitochondria training labels",\
+                                                metavar="mitochondria_labels",\
+                                                default=os.path.join(ms_data,"mitochonria_labels_150324_pedunculus"))
+    parser.add_option("-o", "--output_file",dest="output_file",help="output file",metavar="output_file",
+                                           default=os.path.join(ms_home, "RhoanaSegmentation", "GB_classifier.txt"))
+    parser.add_option("-p", "--processing_start",dest="processing_start",help="start processing from probs(=1) or segm(=2)",\
+                      metavar="processing_start",default=1)
+    parser.add_option("-P", "--processing_end",dest="processing_end",help="complete processing at step probs(=1) or segm(=2) ",\
+                      metavar="processing_end",default=3)
+    parser.add_option("-r", "--raw_images",dest="raw_images",help="folder containing the raw images for training",\
+                                           metavar="raw_images", default=os.path.join(ms_data,"raw_150324_pedunculus"))
+    parser.add_option("-v", "--verbose",action="store_true",dest="verbose",help="increase the verbosity level of output",default=False)
+    parser.add_option("-z", "--zmin",dest="zmin",help="min z-layer to be processed", metavar="zmin", default=0)
+    parser.add_option("-Z", "--zmax",dest="zmax",help="max z-layer to be processed", metavar="zmax", default=sys.maxint)
+    return parser
+
