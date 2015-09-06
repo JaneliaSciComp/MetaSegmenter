@@ -32,34 +32,25 @@ def produce_segmentation(input_data, probs_file_list, options):
         "Segment", "segment.py")
     for i in range(0, len(probs_file_list)):
         probs_file = ntpath.basename(probs_file_list[i])
-        output_file = probs_file.split(".")[0] + ".png"
-        output_dir = os.path.join(ms_data, "seg_" + options.output_tag)
+        output_file = probs_file.split(".")[0] + ".h5"
+        if re.search("mitochondria", options.classifier):
+            output_dir = os.path.join(ms_data, "segmentation_2D_bw_mitochondria_" \
+                                      + options.output_tag)
+        else:
+            output_dir = os.path.join(ms_data, "segmentation_2D_bw_membranes_" \
+                                      + options.output_tag)
         if not os.path.isdir(output_dir):
             os.mkdir(output_dir)
         command = "python " + segmentation_script + " " + probs_file_list[i] +\
-                  " " + os.path.join(ms_data, output_file)
+                  " " + os.path.join(output_dir, output_file)
+        if options.verbose:
+            print "\nSegmentation command=", command, "\n"
         os.system(command)
     return 
 
 # -----------------------------------------------------------------------------
 
-def invert_probabilities(h5_infile, h5_outfile):
-    print "h5_outfile=", h5_outfile
-    f   = h5py.File(h5_infile,  'r')
-    f2  = h5py.File(h5_outfile, 'w')
-    keys = f.keys()
-    for k in keys:
-        if not k == "probabilities":
-            f2.create_dataset(k,      data = f[k])
-        else: 
-            probs  = f["probabilities"]
-            inverse_probs = 1. - numpy.array(probs)
-            f2.create_dataset("probabilities", data = inverse_probs)
-    return 
-
-# -----------------------------------------------------------------------------
-
-def compute_membrane_probabilities(input_data, file_list, options):
+def compute_segmented_object_probabilities(input_data, file_list, options):
     classify_image_executable = options.executable
     classifier_file = options.classifier
     output_file_list = []
@@ -68,12 +59,12 @@ def compute_membrane_probabilities(input_data, file_list, options):
         print "input_file_path=", input_file_path
         input_file       = ntpath.basename(input_file_path)     
         output_file      = input_file.split(".")[0] + ".h5"
-        output_dir       = os.path.join(ms_data, "probs_"     + input_data)
+        input_tag = input_data
+        if input_data[:4] == "raw_":
+            input_tag = input_data[4:]
+        output_dir    = os.path.join(ms_data, options.seg_type + "_prob_" + input_tag)
         if not os.path.isdir(output_dir):
             os.mkdir(output_dir)
-        if input_data[0:4] == "raw_":
-            output_dir   = os.path.join(ms_data, "probs_"     + input_data[4:])
-            output_dir2  = os.path.join(ms_data, "probs_inv_" + input_data[4:])
         output_file_path = os.path.join(output_dir, output_file)
         output_file_list.append(output_file_path)
         command = classify_image_executable + " " + input_file_path + " " + \
@@ -81,15 +72,6 @@ def compute_membrane_probabilities(input_data, file_list, options):
         if options.verbose:
             print "...command=", command
         os.system(command) 
-        # Inverse probabilities
-        if options.inverse_probabilities:
-            output_dir2      = os.path.join(ms_data, "probs_inv_" + input_data)
-            if input_data[0:4] == "raw_":
-               output_dir2  = os.path.join(ms_data, "probs_inv_" + input_data[4:])
-            if not os.path.isdir(output_dir2):
-                os.mkdir(output_dir2)
-            output_file_path2= os.path.join(output_dir2, output_file)
-            invert_probabilities(output_file_path, output_file_path2)
     return output_file_list
 
 # -----------------------------------------------------------------------------
@@ -146,7 +128,7 @@ def process_input_data(input_data, input_type, input_label, options):
 
     if len(input_file_list) > 0:
         if int(options.processing_start) == 1:
-            probs_file_list = compute_membrane_probabilities(input_data, \
+            probs_file_list = compute_segmented_object_probabilities(input_data, \
                                   filtered_input_file_list, options)
 
         if int(options.processing_end) == 2:
@@ -190,6 +172,8 @@ if __name__ == "__main__":
             sys.exit(2)         
         if options.verbose:
             print "\nProcessing input data ..."
+        if len(options.output_tag) == 0:
+            options.output_tag = input_data
         process_input_data(input_data, input_type, input_label, options)
     else:
         parser.print_usage()

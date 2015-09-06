@@ -18,10 +18,12 @@ if __name__ == "__main__":
         if len(sys.argv) == 4:
             layer_id = int(sys.argv[3])
     else:
-        sys.exit("\nusage: MS_UT_ShowH5StackLabels3D.py label_id\n")
+        sys.exit("\nusage: MS_UT_ShowH5StackLabels3D.py h5_file_name label_id\n")
 
-file    = h5py.File(h5_file_name, 'r')
-dataset = numpy.transpose(file['/main'])
+f   = h5py.File(h5_file_name, 'r')
+key = f.keys()[0]
+dataset = numpy.transpose(f[key])
+
 num_layers = dataset.shape[2]
 
 if len(sys.argv) == 3: # 3D scatter plot
@@ -37,7 +39,7 @@ if len(sys.argv) == 3: # 3D scatter plot
             X.append(item[0])
             Y.append(item[1])
             Z.append(z)
-        print "Collected data from layer", layer_id
+        print "Collected data from layer", layer_id, " num_points=", len(X)
         layer_id = layer_id + 1
 
     fig = plt.figure()

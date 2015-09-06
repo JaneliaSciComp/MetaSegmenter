@@ -237,6 +237,7 @@ def submit_segmentation_job(segm_script_path, base_command, options):
                                  " -o /dev/null -e /dev/null "
     else:
         command = base_command + " -V -N " + prog_name
+    command = command + " -l matlab=true "
     if options.num_slots > 1:
         command += " -pe batch " + str(options.num_slots) 
     if re.search("qsub", options.submission_command):
@@ -259,6 +260,7 @@ def submit_xmerge_job(xmerge_script_path, base_command, jobid1, options):
                                  " -o /dev/null -e /dev/null "
     else:
         command = base_command + " -V -N " + prog_name
+    command = command + " -l matlab=true "
     if re.search("qsub", options.submission_command):
         if int(jobid1) > 0:
             command += " -hold_jid " + str(jobid1)
@@ -283,6 +285,7 @@ def submit_ymerge_job(ymerge_script_path, base_command, jobid2, options):
                                  " -o /dev/null -e /dev/null "
     else:
         command = base_command + " -V -N " + prog_name
+    command = command + " -l matlab=true "
     if re.search("qsub", options.submission_command):
         if int(jobid2) > 0:
             command += " -hold_jid " + str(jobid2)
@@ -308,6 +311,7 @@ def submit_epilog_job(epilog_script_path, base_command, jobid3, options):
         command += " -o /dev/null -e /dev/null "
     if int(jobid3) > 0:
         command += " -hold_jid " + str(jobid3)
+    command = command + " -l matlab=true "
     command += " " +  epilog_script_path
     if not options.submission_command == "none":
         os.system(command)
@@ -449,6 +453,8 @@ def process_input_data_low_level(dict_node_xyz, input_label,options):
                    " ny      "     + options.nlen              + " " + \
                    " nx      "     + options.nwid              + " " + \
                    " outBW   "     + output_file               + " " + \
+                   " membPr  "     + options.memb_prob         + " " + \
+                   " mitoPr  "     + options.mito_prob         + " " + \
                    " resize  "     + str(options.resize_scale)
     command_rm   = "rm -f " + input_file
     if int(options.msize) < sys.maxint:             
