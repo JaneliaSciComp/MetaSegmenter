@@ -18,8 +18,12 @@ def Segmentation2D_command_line_parser(parser):
     parser.add_option("-f", "--fracBlack", dest="fracBlack", help="fracBlack for detecting neurons (default=automatic)",metavar="fracBlack", default=None)
     parser.add_option("-F", "--fracBlack2",dest="fracBlack2",help="fracBlack for detect. dark str.",metavar="fracBlack2",default=None)
     parser.add_option("-i","--uint_type",dest="uint",help="8,16,32 or 64",metavar="uint",default="16")
-    parser.add_option("-l", "--nlen",   dest="nlen", help="# of subsections for processing a fragment in y (length) direction",metavar="nlen", default="1")
-    parser.add_option("-m", "--maxsize",dest="msize", help="# of subsections for processing a fragment in y (length) direction",metavar="nlen",default=sys.maxint)
+    parser.add_option("-l", "--nlen", dest="ysecit", help="# of subsections for adaptive thresholding in y (length) direction",metavar="nlen", default="1")
+    parser.add_option("-M", "--memb_prob",dest="memb_prob", help="HDF5 file or a folder of files containing membrane probabilities",\
+                            metavar="memb_prob",default="")
+    parser.add_option("-m", "--mito_prob",dest="mito_prob",help="HDF5 file or a folder of files containing mitoch. probabilities",\
+                            metavar="mito_prob",default="")
+    parser.add_option("-N", "--maxsize",dest="msize", help="# of subsections for processing a fragment in y (length) direction",metavar="nlen",default=sys.maxint)
     parser.add_option("-n", "--node",   dest="node", help="id of the cluster node to be used", metavar="node",  default=0)
     parser.add_option("-o", "--output_folder",dest="output_folder",help="output folder",metavar="output_folder",default=ms_data)
     parser.add_option("-p", "--processing_start",dest="processing_start",help="start processing from segm(=1),xmerg(=2),ymerg(=3),or epilog(=4) ",metavar="processing_start",default=1)
@@ -29,7 +33,7 @@ def Segmentation2D_command_line_parser(parser):
     parser.add_option("-S", "--slots",dest="num_slots", help="# of cluster slots per 1 job (default=1)", metavar="num_slots", default=1)
     parser.add_option("-U", "--unprocessed",action="store_true",dest="unprocessed", help="reprocess only the data for which an output file does not exist",default=False)
     parser.add_option("-v", "--verbose",action="store_true",dest="verbose",help="increase the verbosity level of output",default=False)
-    parser.add_option("-w", "--nwid",   dest="nwid", help="# of subsections for processing a fragment in x (width) direction", metavar="nwid",  default="1")
+    parser.add_option("-w", "--nwid",   dest="nwid", help="# of subsections for adaptive thresholding in x (width) direction", metavar="nwid",  default="1")
     parser.add_option("-X", "--nx",  dest="nx",  help="# of image fragments in x direction", metavar="nx", default=1)
     parser.add_option("-Y", "--ny",  dest="ny",  help="# of image fragments in y direction", metavar="ny", default=1)
     parser.add_option("-x", "--dx",  dest="dx",  help="# of scans for fragment overlap in x direction", metavar="dx", default=50)
@@ -190,17 +194,17 @@ def CreateH5Stack_command_line_parser(parser):
 def RhoanaSegmentation2D_command_line_parser(parser):
     parser.add_option("-A", "--project",dest="project_code",help="code to be used with qsub",metavar="project_code", default="flyTEM")
     parser.add_option("-c", "--classifier",dest="classifier",help="classifier file",metavar="classifier", \
-                                           default=os.path.join(rh_home, "rhoana", "ClassifyMembranes", "GB_classifier.txt"))
+                                           default=os.path.join(ms_home, "RhoanaSegmentation", "GB_classifier_membranes_150324_pedunculus.txt"))
     parser.add_option("-D", "--debug",dest="debug",help="don't delete intermediate outputs", action="store_true", default=False)
     parser.add_option("-e", "--executable",dest="executable",help="executable",metavar="executable",\
                                            default=os.path.join(rh_home, "rhoana", "ClassifyMembranes", "classify_image"))    
-    parser.add_option("-i", "--inverse_probabilities", action="store_true",dest="inverse_probabilities",help="output membrane probabilities", default=False)
-    parser.add_option("-m", "--memprob",dest="memprobs",help="membrane probabilities dir name",metavar="membprobs",default="membranes")
-    parser.add_option("-o", "--output_folder",dest="output_folder",help="output folder",metavar="output_folder",default=ms_data)
+    parser.add_option("-o", "--output_folder",dest="output_folder",help="output folder",metavar="output_folder",\
+                            default=os.path.join(ms_data,"membrane_bw2d_150324_pedunculus"))
     parser.add_option("-p", "--processing_start",dest="processing_start",help="start processing from probs(=1) or segm(=2)",\
                       metavar="processing_start",default=1)
     parser.add_option("-P", "--processing_end",dest="processing_end",help="complete processing at step probs(=1) or segm(=2) ",\
                       metavar="processing_end",default=2)
+    parser.add_option("-T", "--seg_type", dest="seg_type", help="segmentation type: memb, mito, or mitomemb", default="memb")
     parser.add_option("-t", "--output_tag",dest="output_tag",help="output tag, default=input_data",metavar="output_tag",default="")
     parser.add_option("-v", "--verbose",action="store_true",dest="verbose",help="increase the verbosity level of output",default=False)
     parser.add_option("-z", "--zmin",dest="zmin",help="min z-layer to be processed", metavar="zmin", default=0)
@@ -211,26 +215,66 @@ def RhoanaSegmentation2D_command_line_parser(parser):
 
 def RhoanaTrainClassifier_command_line_parser(parser):
     parser.add_option("-A", "--project",dest="project_code",help="code to be used with qsub",metavar="project_code", default="flyTEM")
-    parser.add_option("-c", "--classifier_type",dest="classifier_type",help="GB(=gradient boosting) or RF(=random forest)",metavar="classifier_type",default="GB")
+    parser.add_option("-c", "--classifier_type",dest="classifier_type",help="GB(=gradient boosting) or RF(=random forest)",\
+                                                metavar="classifier_type",default="GB")
+    parser.add_option("-d", "--training_dir",dest="training_dir",help="output dir for training images",
+                                             metavar="training_dir",default="")
     parser.add_option("-D", "--debug",dest="debug",help="don't delete intermediate outputs", action="store_true", default=False)
-    parser.add_option("-f", "--features",dest="features",help="name of a folder containing computed features",metavar="features",
-                                           default=os.path.join(ms_data,"features_150324_pedunculus"))
-    parser.add_option("-M", "--membrane_labels",dest="membrane_labels",help="folder containing membrane training labels",\
-                                                metavar="membrane_labels",\
-                                                default=os.path.join(ms_data,"membrane_labels_150324_pedunculus"))
-    parser.add_option("-m", "--mitochondria_labels",dest="mitochondria_labels",help="folder containing mitochondria training labels",\
-                                                metavar="mitochondria_labels",\
-                                                default=os.path.join(ms_data,"mitochonria_labels_150324_pedunculus"))
-    parser.add_option("-o", "--output_file",dest="output_file",help="output file",metavar="output_file",
-                                           default=os.path.join(ms_home, "RhoanaSegmentation", "GB_classifier.txt"))
+    parser.add_option("-f", "--features_dir",dest="features_dir",help="name of a folder containing computed features",\
+                                             metavar="features_dir", default="")
+    parser.add_option("-l", "--pos_labels_dir",dest="pos_labels_dir",help="folder containing positive training labels",\
+                                                metavar="pos_labels_dir", default="")
+    parser.add_option("-L", "--neg_labels_dir",dest="neg_labels_dir",help="folder containing negative training labels",\
+                                                metavar="neg_labels_dir", default="")
+    parser.add_option("-o", "--output_file",dest="output_file",help="output file",metavar="output_file", default="")
     parser.add_option("-p", "--processing_start",dest="processing_start",help="start processing from probs(=1) or segm(=2)",\
                       metavar="processing_start",default=1)
     parser.add_option("-P", "--processing_end",dest="processing_end",help="complete processing at step probs(=1) or segm(=2) ",\
                       metavar="processing_end",default=3)
-    parser.add_option("-r", "--raw_images",dest="raw_images",help="folder containing the raw images for training",\
-                                           metavar="raw_images", default=os.path.join(ms_data,"raw_150324_pedunculus"))
+    parser.add_option("-r", "--raw_dir",dest="raw_dir",help="folder containing the raw images for training",\
+                                           metavar="raw_dir", default="")
+    parser.add_option("-T", "--training_type", dest="training_type", \
+                      help="training type: memb_vs_rest, mito_vs_rest, mitomemb_vs_rest or memb_vs_mito", default="memb_vs_rest")
     parser.add_option("-v", "--verbose",action="store_true",dest="verbose",help="increase the verbosity level of output",default=False)
     parser.add_option("-z", "--zmin",dest="zmin",help="min z-layer to be processed", metavar="zmin", default=0)
     parser.add_option("-Z", "--zmax",dest="zmax",help="max z-layer to be processed", metavar="zmax", default=sys.maxint)
+    return parser
+
+# -----------------------------------------------------------------------
+
+def GalaSegmentation2D_command_line_parser(parser):
+    parser.add_option("-D", "--debug",dest="debug",help="don't delete intermediate outputs", action="store_true", default=False)
+    parser.add_option("-i", "--input_raw",dest="input_dir",help="folder of raw/grayscale production images",metavar="input_raw_dir", default="")
+    parser.add_option("-o", "--output_seg",dest="output_dir",help="output folder",metavar="output_folder",\
+                            default=os.path.join(ms_data,"membrane_bw2d_150324_pedunculus"))
+    parser.add_option("-p", "--processing_start",dest="processing_start",help="start processing from probs(=1) or segm(=2)",\
+                      metavar="processing_start",default=1)
+    parser.add_option("-P", "--processing_end",dest="processing_end",help="complete processing at step probs(=1) or segm(=2) ",\
+                      metavar="processing_end",default=2)
+    parser.add_option("-T", "--training_labels", dest="training_labels_dir", help="folder of groundtruth labels images", default="")
+    parser.add_option("-t", "--training_raw",dest="training_raw_dir",help="folder of raw/grayscale training images",metavar="training_raw_dir", default="")
+    parser.add_option("-v", "--verbose",action="store_true",dest="verbose",help="increase the verbosity level of output",default=False)
+    parser.add_option("-z", "--zmin",dest="zmin",help="min z-layer for training", metavar="zmin", default=0)
+    parser.add_option("-Z", "--zmax",dest="zmax",help="max z-layer for training", metavar="zmax", default=sys.maxint)
+
+    return parser
+
+# -----------------------------------------------------------------------
+
+def NeuroProofSegmentation2D_command_line_parser(parser):
+    parser.add_option("-d", "--training_dir",dest="training_dir",help="folder for training data",\
+                      metavar="training_dir", default = "training_dir")                    
+    parser.add_option("-D", "--production_dir",dest="production_dir",help="folder for production data",\
+                      metavar="production_dir", default = "production_dir") 
+    parser.add_option("-p", "--processing_start",dest="processing_start",help="1=train_dir, 2=prod_dir, 3=learn, 4=segm ",\
+                      metavar="processing_start",default=1)
+    parser.add_option("-P", "--processing_end",dest="processing_end",help="1=train_dir, 2=prod_dir, 3=learn, 4=segm ",\
+                      metavar="processing_end",default=5)
+    parser.add_option("-t", "--tmin",dest="tmin",help="min z-layer for training", metavar="zmin", default=0)
+    parser.add_option("-T", "--tmax",dest="tmax",help="max z-layer for training", metavar="zmax", default=sys.maxint)
+    parser.add_option("-v", "--verbose",action="store_true",dest="verbose",help="increase the verbosity level of output",default=False)
+    parser.add_option("-z", "--zmin",dest="zmin",help="min z-layer for production", metavar="tmin", default=0)
+    parser.add_option("-Z", "--zmax",dest="zmax",help="max z-layer for production", metavar="tmax", default=sys.maxint)
+
     return parser
 

@@ -19,7 +19,7 @@ pos_BW_data  = numpy.array(Image.open(pos_BW_image_file))
 pos_BW_shape = pos_BW_data.shape
 RGB_shape    = (pos_BW_shape[0],pos_BW_shape[1],3)
 RGB_data     = numpy.zeros(RGB_shape, 'uint8')
-if re.search("membrane", pos_BW_image_file) and len(neg_BW_image_file) == 0:      
+if re.search("memb", pos_BW_image_file) and len(neg_BW_image_file) == 0:      
     # train membranes vs the rest: membranes=black, the rest =white
     RGB_data[pos_BW_data==  0,1] = 255   # positive examples: black -> green
     RGB_data[pos_BW_data==255,0] = 255   # negatice examples: white -> red
@@ -33,9 +33,6 @@ else:
     RGB_data[pos_BW_data==  0,1] = 255   # positive examples: white -> green
     RGB_data[neg_BW_data==255,0] = 255   # negatice examples: white -> red    
 RGB_image = Image.fromarray(RGB_data)
-parent_dir = os.path.dirname(os.path.normpath(out_RGB_image_file))
-print "out_RGB_image_file=", out_RGB_image_file, " parent_dir=", parent_dir
-if not os.path.isdir(parent_dir):
-    os.mkdir(parent_dir)
+print "out_RGB_image_file=", out_RGB_image_file
 RGB_image.save(out_RGB_image_file)
 

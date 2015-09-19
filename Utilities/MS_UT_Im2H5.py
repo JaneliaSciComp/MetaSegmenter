@@ -22,9 +22,15 @@ if __name__ == "__main__":
     else:
         sys.exit("\nusage: MS_UT_Im2H5.py <image_file> <hdf5_file> \n")
 
-    data_stack = numpy.array(Image.open(image_file))
+    data       = numpy.array(Image.open(image_file))
+    if 1:
+        data_stack = numpy.zeros([1, data.shape[0], data.shape[1]], dtype = numpy.uint32)
+        data_stack[0,:,:] = data
+    else:
+        data_stack = numpy.zeros([   data.shape[0], data.shape[1]], dtype = numpy.uint32)
+        data_stack[  :,:] = data
     f  = h5py.File(h5_file_name, 'w')
-    f.create_dataset('stack', data_stack.shape, data = numpy.transpose(data_stack))
+    f.create_dataset('stack', data_stack.shape, data = data_stack, dtype = numpy.uint32)                       
 
 
       

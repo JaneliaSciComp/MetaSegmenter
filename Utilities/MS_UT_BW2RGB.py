@@ -3,7 +3,6 @@
 import re, sys
 import h5py
 from scipy import misc
-import tifffile as tiff
 import numpy
 from PIL import Image
 

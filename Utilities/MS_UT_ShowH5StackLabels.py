@@ -19,17 +19,19 @@ if __name__ == "__main__":
     else:
         sys.exit("usage: MS_UT_ShowH5StackLabels.py h5file layer_id \n")
 
-    f  = h5py.File(h5_file_name, 'r')   
-    data = f['main']
+    f = h5py.File(h5_file_name, 'r')
+    key = f.keys()[0]
+    data = numpy.transpose(f[key])
     print "type=", type(data)
     print "type=", type(numpy.array(data))
-    print "shape=", numpy.array(data).shape
-    data1 = data[0,:,:,layer_id]
-    data2 = data[1,:,:,layer_id]
-    data3 = data[2,:,:,layer_id]
-    print "shape1=", data1.shape
+    print "data.shape=", numpy.array(data).shape
+#   data1 = data[0,:,:,layer_id]
+#   data2 = data[1,:,:,layer_id]
+#   data3 = data[2,:,:,layer_id]
+    print "data=", data
+    print "max=", numpy.max(data), " min=", numpy.min(data)
 #   data1_new = data1;
-    data1 == data2
+#   data1 == data2
 #   data1 
 #:red
-   data1_new(data1 == data2) = "."
+#   data1_new(data1 == data2) = "."

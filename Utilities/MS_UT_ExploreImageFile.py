@@ -22,7 +22,15 @@ elif re.search(".h5", image_file):
     image_data = numpy.array(f[key])
 else:
     sys.exit("Unsupported file format")
-print "max=", image_data.max(), " min=", image_data.min()
-print "dtype=", image_data.dtype
 print "Image shape=", image_data.shape
+print "dtype=", image_data.dtype
+max_value = image_data.max()
+min_value = image_data.min()
+print "max=", max_value, " min=", min_value
+if round(max_value) == max_value and round(min_value) == min_value and max_value - min_value > 1:
+    num_values = 0
+    for i in range(min_value, max_value + 1):
+        if (image_data == i).sum() > 0:
+            num_values += 1
+    print "num_values=", num_values
 

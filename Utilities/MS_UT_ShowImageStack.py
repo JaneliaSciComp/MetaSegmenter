@@ -30,9 +30,11 @@ if re.search(".h5", stack_file_name):
         key = "segmentations"
     data0 = f[key]
     print "data0.shape=", data0.shape
-#   data = numpy.transpose(f[key])
     data =                 f[key]
     print "data.shape=", data.shape
+    # Layer id is supposed to be the last dimension:
+    if data.shape[0] < min(data.shape[1], data.shape[2]):
+        data = numpy.transpose(f[key])
 elif re.search(".tif", stack_file_name):
     data = numpy.transpose(tiff.imread(stack_file_name))
 else:

@@ -38,22 +38,11 @@ if __name__ == "__main__":
 
     for i in range(0, len(input_files1)): 
         data = copy.copy(numpy.asarray(Image.open(input_files1[i], 'r'))) 
-#       if i == 0:
-#           my_shape = [len(input_files1), data.shape[0], data.shape[1]]
-#           data_stack = numpy.zeros(my_shape, dtype = numpy.uint32)
-#       data_stack[i,:,:] = data
         if i == 0:
-            my_shape = [data.shape[0], data.shape[1], len(input_files1)]
-            data_stack = numpy.zeros(my_shape, dtype = numpy.uint32)
-        data_stack[:,:, i] = data
-    print "my_shape=", my_shape
-    max_label = numpy.max(data_stack)
-    my_shape2 = [max_label+1, 2]
-    transforms = numpy.zeros(my_shape2, dtype = numpy.uint64)
-    for i in range(0, max_label+1):
-        transforms[i,0:2] = i
+            my_shape = [len(input_files1), data.shape[0], data.shape[1]]
+            data_stack = numpy.zeros(my_shape, dtype = numpy.int32)
+        data_stack[i, :,:] = data
     f.create_dataset('stack', my_shape, data = data_stack)
-    f.create_dataset('transforms', my_shape2, data = transforms)
 
 
       
