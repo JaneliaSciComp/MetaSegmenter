@@ -35,9 +35,9 @@ function [] = MS_S2D_Segmentation2D(inputName,fracBlack,fracBlack2,varargin)
         I = squeeze(I(:,:,1));
     end
     
-    if (options.dispOn || options.dispOn2 || options.debug)
-        MS_S2D_ShowImage(I(:,:), 'Original image (I)', options);
-    end
+%   if (options.dispOn || options.dispOn2 || options.debug)
+%       MS_S2D_ShowImage(I(:,:), 'Original image (I)', options);
+%   end
 
     imwrite(I, 'orig_image_MS_S2D_Segmentation2D.png');
 
@@ -75,34 +75,38 @@ function Ibwf = segment_image(I, fracBlack, fracBlack2, options)
     % Black-white images
     %
     if options.compiled_code
-        Ibwn = MS_S2D_SegmentNeurons(I, ...
+        Ibwn = MS_S2D_SegmentNeuralMembranes(I, ...
             fracBlack, fracBlack2,...
             'nx', options.nx, 'ny', options.ny,...
             'dx', options.dx, 'dy', options.dy,...
-            'maxSize', options.maxSize, ...
+            'membPr', options.membPr, 'mitoPr', options.mitoPr, ...
+            'thr',    options.thr, 'maxSize', options.maxSize, ...
             'verbose', options.verbose);
-        Ibwd = MS_S2D_DetectDarkStructures2D(I, ...
+        Ibwd = MS_S2D_SegmentDarkStructures(I, imcomplement(Ibwn), ...
             fracBlack, fracBlack2,...
             'nx', options.nx, 'ny', options.ny,...
             'dx', options.dx, 'dy', options.dy,...
-            'maxSize', options.maxSize, ...
+            'membPr', options.membPr, 'mitoPr', options.mitoPr, ...
+            'thr',   options.thr2,  'maxSize', options.maxSize, ...
             'verbose', options.verbose);
     else 
-        Ibwn = MS_S2D_SegmentNeurons(I, fracBlack, fracBlack2,...
+        Ibwn = MS_S2D_SegmentNeuralMembranes(I, fracBlack, fracBlack2,...
             'nx', options.nx, 'ny', options.ny,...
             'dx', options.dx, 'dy', options.dy,...
+            'membPr', options.membPr, 'mitoPr', options.mitoPr, ...
             'sx', options.sx, 'sy', options.sy,...
-            'maxSize', options.maxSize, ...
+            'thr',    options.thr, 'maxSize', options.maxSize, ...
             'verbose', options.verbose,...
             'dispOn', options.dispOn,...
             'dispOn2', options.dispOn2,...
             'closeAll',options.closeAll, ...
             'hist', options.hist);
-        Ibwd = MS_S2D_DetectDarkStructures2D(I, fracBlack, fracBlack2,...
+        Ibwd = MS_S2D_SegmentDarkStructures(I, imcomplement(Ibwn), fracBlack, fracBlack2,...
             'nx', options.nx, 'ny', options.ny,...
             'dx', options.dx, 'dy', options.dy,...
+            'membPr', options.membPr, 'mitoPr', options.mitoPr, ...
             'sx', options.sx, 'sy', options.sy,...
-            'maxSize', options.maxSize, ...
+            'thr',   options.thr2, 'maxSize', options.maxSize, ...
             'verbose', options.verbose,...
             'dispOn', options.dispOn,...
             'dispOn2', options.dispOn2,...
@@ -121,91 +125,102 @@ function Ibwf = segment_image(I, fracBlack, fracBlack2, options)
         MS_S2D_ShowImage(Ibwd, 'Initially detectred dark structures (Ibwd)', options);
     end
 
-    % #########
-    % Step 1:
-    % #########
+    if length(options.mitoPr) > 0
+        % Force the final segmentation have the detected dark structure regions
+        Ibwf = Ibwn;
+        clear Ibwn;
+        Ibwde = imerode(Ibwd, strel('disk', 2));
+        Ibwd(Ibwde > 0) = 0; % boundaries of dark structures
+        Ibwf(Ibwd  > 0) = 0; 
+        Ibwf(Ibwde > 0) = 1;
+        Ibwf = bwareaopen(Ibwf,100);
+    else
+        % #########
+        % Step 1:
+        % #########
 
-    % Identify the dark strutures each of which is entirely contained 
-    % within a single neural cell region.   
-    Ibwnd = imdilate(Ibwn, strel('disk', 1));
-    Ibwn1 = (Ibwnd | Ibwd) - Ibwd;       
-    % What we are looking for, should be holes in the remaing BW components
-    Ibwn2 = imfill(Ibwn1, 'holes');
-    Ibwd1 = Ibwn2 - Ibwn1;
-    clear Ibwn1;
-    clear Ibwn2;
-    Ibwd11 = bwareaopen(Ibwd1,200);
+        % Identify the dark strutures each of which is entirely contained 
+        % within a single neural cell region.   
+        Ibwnd = imdilate(Ibwn, strel('disk', 1));
+        Ibwn1 = (Ibwnd | Ibwd) - Ibwd;       
+        % What we are looking for, should be holes in the remaing BW components
+        Ibwn2 = imfill(Ibwn1, 'holes');
+        Ibwd1 = Ibwn2 - Ibwn1;
+        clear Ibwn1;
+        clear Ibwn2;
+        Ibwd11 = bwareaopen(Ibwd1,200);
 
-    % Identify the dark strutures each of which is ALMOST entirely contained
-    % within a single neural cell region.
-    Ibwde  = imerode(Ibwd - Ibwd11, strel('disk', 1));
-    Ibwn1 = (Ibwnd | Ibwde) - Ibwde;
-    Ibwn2 = imfill(Ibwn1, 'holes');
-    Ibwd12 = Ibwn2 - Ibwn1;
-    clear Ibwn1;
-    clear Ibwn2;
-    Ibwd12  = bwareaopen(Ibwd12,200);
-    Ibwd1f = Ibwd11 | Ibwd12;
-    if options.debug 
-        MS_S2D_ShowImage(Ibwd1f, 'Final dark structures which are entirely contained in neural cell regions (Ibwd1f)', options);
-    end
-
-    % #########
-    % Step 2:
-    % #########
-
-    % Identify the (parts of) dark strutures that are located
-    % - either outside of (slightly dilated) large neural cell regions
-    % - or entirely cover very small neural cell regions.
-    Ibwnd = imdilate(Ibwn, strel('disk', 2));
-    Ibwd1 = Ibwd - Ibwd1f;
-    Ibwd2 = (Ibwnd | Ibwd1) - Ibwnd;
-    clear Ibwnd;
-    Ibwd2 = bwareaopen(Ibwd2, 400);
-    Ibwd2f = imfill(Ibwd2, 'holes');
-    clear Ibwd2;
-%   Ibwd1 = imclose(Ibwd1, strel('disk', 2));
-
-    if options.debug
-         MS_S2D_ShowImage(Ibwd2f,'Final dark structures which are outside of neural cell regions (Ibwd2f)', options);
-    end
-
-    % #########
-    % Step 3:
-    % #########
-
-    % Add the resulting dark structures to the neural cell segmentation
-    % - identify boundary pixels of dark structures (Ibwd1f and Ibwd2f)
-    % - identify internal pixels of dark structures (Ibwd1f and Ibwd2f)
-    % - set Ibwn to 0 at the boundary pixels
-    % - set Ibwn to 1 at the internal pixels
-    Ibwf = Ibwn + Ibwd1f + Ibwd2f;
-    if options.padding
-        Ibwf = MS_S2D_AddBoundaryPadding(Ibwf, 0);
-    end
-
-    Bd1f = bwboundaries(Ibwd1f, 4);
-    clear Ibwd1f;
-    for i=1:numel(Bd1f)  % i = component id
-        % Boundary pixels
-        bp1 = Bd1f{i};
-        Q1  = size(bp1,1);
-        for j=1:Q1          
-            Ibwf(bp1(j,1),bp1(j,2)) = logical(0);
+        % Identify the dark strutures each of which is ALMOST entirely contained
+        % within a single neural cell region.
+        Ibwde  = imerode(Ibwd - Ibwd11, strel('disk', 1));
+        Ibwn1 = (Ibwnd | Ibwde) - Ibwde;
+        Ibwn2 = imfill(Ibwn1, 'holes');
+        Ibwd12 = Ibwn2 - Ibwn1;
+        clear Ibwn1;
+        clear Ibwn2;
+        Ibwd12  = bwareaopen(Ibwd12,200);
+        Ibwd1f = Ibwd11 | Ibwd12;
+        if options.debug 
+            MS_S2D_ShowImage(Ibwd1f, 'Final dark structures which are entirely contained in neural cell regions (Ibwd1f)', options);
         end
-    end
-    clear Bd1f;
-    Bd2f = bwboundaries(Ibwd2f, 4);
-    clear Ibwd2f;
-    for i=1:numel(Bd2f)
-        bp2 = Bd2f{i};
-        Q2  = size(bp2,1);
-        for j=1:Q2            
-            Ibwf(bp2(j,1), bp2(j,2)) = logical(0);
+
+        % #########
+        % Step 2:
+        % #########
+
+        % Identify the (parts of) dark strutures that are located
+        % - either outside of (slightly dilated) large neural cell regions
+        % - or entirely cover very small neural cell regions.
+        Ibwnd = imdilate(Ibwn, strel('disk', 2));
+        Ibwd1 = Ibwd - Ibwd1f;
+        Ibwd2 = (Ibwnd | Ibwd1) - Ibwnd;
+        clear Ibwnd;
+        Ibwd2 = bwareaopen(Ibwd2, 400);
+        Ibwd2f = imfill(Ibwd2, 'holes');
+        clear Ibwd2;
+%       Ibwd1 = imclose(Ibwd1, strel('disk', 2));
+
+        if options.debug
+             MS_S2D_ShowImage(Ibwd2f,'Final dark structures which are outside of neural cell regions (Ibwd2f)', options);
         end
+
+        % #########
+        % Step 3:
+        % #########
+
+        % Add the resulting dark structures to the neural cell segmentation
+        % - identify boundary pixels of dark structures (Ibwd1f and Ibwd2f)
+        % - identify internal pixels of dark structures (Ibwd1f and Ibwd2f)
+        % - set Ibwn to 0 at the boundary pixels
+        % - set Ibwn to 1 at the internal pixels
+        Ibwf = Ibwn + Ibwd1f + Ibwd2f;
+        if options.padding
+            Ibwf = MS_S2D_AddBoundaryPadding(Ibwf, 0);
+        end
+
+        Bd1f = bwboundaries(Ibwd1f, 4);
+        clear Ibwd1f;
+        for i=1:numel(Bd1f)  % i = component id
+            % Boundary pixels
+            bp1 = Bd1f{i};
+            Q1  = size(bp1,1);
+            for j=1:Q1          
+                Ibwf(bp1(j,1),bp1(j,2)) = logical(0);
+            end
+        end
+        clear Bd1f;
+        Bd2f = bwboundaries(Ibwd2f, 4);
+        clear Ibwd2f;
+        for i=1:numel(Bd2f)
+            bp2 = Bd2f{i};
+            Q2  = size(bp2,1);
+            for j=1:Q2            
+                Ibwf(bp2(j,1), bp2(j,2)) = logical(0);
+            end
+        end
+        clear Bd2f;
+%       Ibwf = imfill(Ibwf, 'holes'); % is it possible to fill only those holes which do not contain childs?
     end
-    clear Bd2f;
-%   Ibwf = imfill(Ibwf, 'holes'); % is it possible to fill only those holes which do not contain childs?
     return
 
 % -----------------------------------------------------------------------------
@@ -215,6 +230,7 @@ function output_usage_message()
     disp('Required arguments:');
     disp('    inputName    - name of input data (file or image)');
     disp('    fracBlack    - desired fraction of black for black/wite conversion');
+    disp('    fracBlack2   - desired fraction of black for black/wite conversion');
     disp('Optional parameters, specified as parameter-value pairs:');
     disp('    dispOn       - weather or not to display covariance matrix (default=0)');
     disp('    closeAll     - close previous image when displayong next (default=1)');
