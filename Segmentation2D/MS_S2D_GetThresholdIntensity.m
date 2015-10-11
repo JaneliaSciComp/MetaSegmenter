@@ -24,19 +24,31 @@ function [M_thr, M_thr2] = MS_S2D_GetThresholdIntensity(Igr, fracBlack_id, subse
     thresholds_reg2= zeros(ny, nx);
     y_center = int32(zeros(1, ny));
     x_center = int32(zeros(1, nx));
+    disp(['fracBlack_id=' num2str(fracBlack_id) ' size(Igr)=' num2str(size(Igr)) ' max(max(Igr))=' num2str(max(max(Igr))) ]);
     for k=1:numel(subsections)
         iy = 1 + floor(double(k-1)/double(nx));
         jx = k - nx*(iy -1);
         y_center(iy) = int32(round(mean(subsections(k).ypixels)));
         x_center(jx) = int32(round(mean(subsections(k).xpixels)));
-        Igr_reg = Igr(subsections(k).ypixels,subsections(k).xpixels,1);
-        if length(options.membPr) == 0 
-            [thr, thr2] = get_threshold_intensity3_for_one_subsection(iy, jx, Igr_reg,...  
+        Igr_reg = Igr(subsections(k).ypixels,subsections(k).xpixels);
+        if fracBlack_id == 1 
+            if length(options.membPr) == 0 
+                [thr, thr2] = get_threshold_intensity3_for_one_subsection(iy, jx, Igr_reg,...  
                               fracBlack_id, num_edges, options);
-        else
-            thr         = get_threshold_intensity2_for_one_subsection(iy, jx, Igr_reg,...
+            else
+                thr         = get_threshold_intensity2_for_one_subsection(iy, jx, Igr_reg,...
                               fracBlack_id, num_edges, options);
-            thr2 = thr;
+                thr2 = thr;
+            end
+        else % fracBlack_id == 2 
+            if length(options.mitoPr) == 0
+                [thr, thr2] = get_threshold_intensity3_for_one_subsection(iy, jx, Igr_reg,...
+                              fracBlack_id, num_edges, options);
+            else
+                thr2        = get_threshold_intensity2_for_one_subsection(iy, jx, Igr_reg,...
+                                  fracBlack_id, num_edges, options);
+                thr = thr2;
+            end
         end
         thresholds_reg(iy, jx)  = thr;
         thresholds_reg2(iy, jx) = thr2;
@@ -652,60 +664,85 @@ function [auto_thr , ind1, auto_thr2, ind2, A_B, mu_B, sig_B, ind_B, ...
 
 % -- --------------------------------------------------------------------------
 
+% Detrmine the threshold intensity using N.Otsu's method
+% ( IEEE Trans. Syst. Man and Cybernetics,  
+%   vol. SMC-9, NO. 1, JANUARY 1979 )
+%
+
 function [threshold] = get_threshold_intensity2_for_one_subsection(i, j, Igr, ...
                                        fracBlack_id, num_edges, options);
-    min_fracBlack = 0.40;
-    alpha = 0.;
-    beta  = 1.0;
-    Hist  = imhist(Igr,num_edges)';      % counts
-    edges = compute_edges(num_edges); % using a custom function for edges
-
-%   Ignore pixels where intensity is exactly == 1 or exactly == 0
-%   Hist(1) = 0;
-%   Hist(numel(Hist)) = 0;
-
-    Hsum  = sum(Hist');
-    if options.hist
-        figure
-        imhist(Igr);
-        hold on;
-        title('Initial histogram');
-        waitforbuttonpress;
-    end
-    cum_hist = get_cumulative_histogram(Hist', Hsum);
-%   inf_points = get_inflection_points(Hist', edges);
-%   disp(['Inflection points=' num2str(inf_points)]);
-%   num_inf_points = numel(inf_points);
-%   if options.dispOn
-%       plot(edges, cum_hist);
-%        waitforbuttonpress;
-%   end
-
-%   if num_inf_points > 0
-%       options.thr = (inf_points(1) + inf_points(num_inf_points))/2.;
-%   end
-%   options.thr = 0.7;
-    disp([ 'edges(1)=' num2str(edges(1)) ' edges(numel(edges))=' num2str(edges(numel(edges))) ' threshold=' num2str(options.thr)]);
-
-%   if options.thr > 0
-    if 1
+    if fracBlack_id == 1 && options.thr > 0
         threshold = options.thr;
+    elseif fracBlack_id == 2 && options.thr2 > 0
+        threshold = options.thr2;
     else
-        % Determine 'automatic' thresholds first
-        [auto_thr, ind, A_B, mu_B, sig_B, ind_B, A_W, mu_W, sig_W, ind_W] = ...
-            compute_threshold_intensity2(i, j, Igr, Hist, edges, options);
+        Igr = round(double(Igr) * 255.); 
+        threshold = 0;
+        max_intensity = uint8(max(max(Igr)));
+        disp(['max_intensity=' num2str(max_intensity) ' min_intenisty=' num2str(min(min(Igr)))]);
 
-         if options.verbose
-            disp(['  A_B=' num2str(A_B) ' mu_B=' num2str(mu_B) ' sig_B=' num2str(sig_B)]);
-            disp(['  A_W=' num2str(A_W) ' mu_W=' num2str(mu_W) ' sig_W=' num2str(sig_W)]);
-            disp([' (automatic) threshold='  num2str(auto_thr)]);
-            disp([' mu_B + sig_B=' num2str(mu_B + sig_B)]);
-            disp([' mu_B + 2*sig_B=' num2str(mu_B + 2*sig_B)]);
-            disp([' mu_W - sig_W=' num2str(mu_W - sig_W)]);
-            disp([' mu_W - 2*sig_W=' num2str(mu_W - 2*sig_W)]);
+        % Determine the probabilities
+        counts        = zeros(1, max_intensity + 1);
+        probabilities = zeros(1, max_intensity + 1);
+        for i=0:max_intensity
+%           disp(['i=' num2str(i) ' sum(sum(Igr == i))=' num2str(sum(sum(Igr == i)))]);
+            counts(i+1) = sum(sum(Igr == i));
         end
+        disp(['counts=' num2str(counts)]);
+        probabilities = double(counts)/double(sum(counts));
+        disp(['probabilities=' num2str(probabilities)]);
 
-        threshold  = auto_thr;
+        % Determine the best threshold
+        best_threshold = 0;
+        best_eta = 0.;
+        for k=1:(numel(probabilities)-1)
+            omega_0 = sum(probabilities(1    :k                   ));
+            omega_1 = sum(probabilities((k+1):numel(probabilities)));
+            % Get mu_0
+            mu_0 = 0;
+            for i=1:k
+                mu_0 = mu_0 + double(i)*probabilities(i);
+            end
+            mu_0 = mu_0/omega_0;
+            % Get mu_1
+            mu_1 = 0;
+            for i=(k+1):numel(probabilities)
+                mu_1 = mu_1 + double(i)*probabilities(i);
+            end
+            mu_1 = mu_1/omega_1;
+            % Get mu_T
+            mu_T = 0;
+            for i=1:numel(probabilities)
+                mu_T = mu_T + double(i)*probabilities(i);
+            end
+            % Get sigma2_0
+            sigma2_0 = 0;
+            for i=1:k
+                sigma2_0 = sigma2_0 + (double(i) - mu_0)^2*probabilities(i);
+            end
+            sigma2_0 = sigma2_0/omega_0;
+            % Get sigma2_1
+            sigma2_1 = 0;
+            for i=(k+1):numel(probabilities)
+                sigma2_1 = sigma2_1 + (double(i) - mu_1)^2*probabilities(i);
+            end
+            sigma2_1 = sigma2_1/omega_1;
+            % Get sigma2_T
+            sigma2_T = 0;
+            for i=1:numel(probabilities)
+                sigma2_T = sigma2_T + (double(i) - mu_T)^2*probabilities(i);
+            end
+            % Get eta
+            sigma2_W = omega_0*sigma2_0        + omega_1*sigma2_1;
+            sigma2_B = omega_0*(mu_0 - mu_T)^2 + omega_1*(mu_1 - mu_T)^2;
+            eta = sigma2_B/sigma2_T;
+%       disp(['    k=' num2str(k) ' sigma2_W=' num2str(sigma2_W) ' sigma2_B=' num2str(sigma2_B) ' eta=' num2str(eta) ' best_eta='  num2str(best_eta) ' best_threshold=' num2str(best_threshold)]); 
+            if  best_eta < eta
+                best_eta = eta;
+                best_threshold = k; 
+            end
+        end
+        threshold  = double(best_threshold)/double(max_intensity);
     end
     disp(['Final threshold=' num2str(threshold)]);
 

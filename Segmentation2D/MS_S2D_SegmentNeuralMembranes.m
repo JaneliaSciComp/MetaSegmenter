@@ -38,12 +38,15 @@ function Ibwn = MS_S2D_SegmentNeuralMembranes(inputName,fracBlack,fracBlack2,var
         if options.dispOn
             MS_S2D_ShowImage(mat2gray(membPr), 'Membrane probabilities', options);
         end
-%       Igr = use_probabilities_instead_of_signals(I, membPr, options);
-        Igr = weight_image_by_probabilities(I, membPr, options);
-%       Igr = imcomplement(round(imcomplement(Igr) .* membPr));
+        weight_signals_by_probabilities = 1;
+        if weight_signals_by_probabilities
+            Igr = weight_image_by_probabilities(I, membPr, options);
+        else 
+            Igr = use_probabilities_instead_of_signals(I, membPr, options);
+        end
         clear membPr;
         if options.dispOn
-            MS_S2D_ShowImage(Igr, 'Weighted original image (Igr)', options);
+            MS_S2D_ShowImage(mat2gray(Igr), 'Weighted original image (Igr)', options);
         end
     end
     clear I;
@@ -53,6 +56,7 @@ function Ibwn = MS_S2D_SegmentNeuralMembranes(inputName,fracBlack,fracBlack2,var
     subsections = MS_S2D_DivideImageIntoSubsections(im_size, options);
     [M_thr, M_thr2] = MS_S2D_GetThresholdIntensity(Igr, 1, subsections, options);           
     clear M_thr2;
+    disp(['M_thr=' num2str(max(max(M_thr)))]);
     Ibwn = segment_neurons(Igr, M_thr, options);
     imwrite(Ibwn, 'Ibwn_MS_S2D_SegmentNeuralMembranes.tiff');
     Ibwn = MS_S2D_AddBoundaryPadding(Ibwn, 0);
@@ -136,7 +140,6 @@ function Ibwn = segment_neurons(Igr, M_thr, options)
 
 function Iw = use_probabilities_instead_of_signals(I, membPr, options)
     Iw = round(membPr.*255.);
-    disp(['max(Iw)=' num2str(max(max(Iw))) ' min(Iw)=' num2str(min(min(Iw)))]);
     if options.dispOn
         MS_S2D_ShowImage(mat2gray(Iw), 'Signals weighted by membrane probabilities (Iw)', options);
     end

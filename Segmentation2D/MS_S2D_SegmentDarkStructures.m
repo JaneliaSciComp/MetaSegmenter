@@ -88,39 +88,20 @@ function Ibwd = segment_dark_structures(Igr, Imemb, M_thr, M_thr2, options)
     % NOTE: imhist assumes that I is a grayscale image, with range of values [0, 1]
     % NOTE2: edges are computed incorrectly by Matlab's imhist function,
     %        so a custom function has been implemented for compuring the edges
-    Ibw = im2bw(Igr, 1);
-    Ibw(Igr > M_thr)  = logical(1);
-    Ibw2 = im2bw(Igr, 1);
-    Ibw2(Igr < M_thr2) = logical(1);
-    clear Igr;
-    Ibw(Ibw2) = logical(0); % subtract Ibw2 from Ibw
-    clear Ibw2; 
-
-    orig_imsize = size(Ibw);
-    scale = options.resize;
-    Ibw = imresize(Ibw, scale);
-    Ibw = bwareaopen(Ibw,20);
-    Ibw = MS_S2D_AddBoundaryPadding(Ibw, 1);
-    % Ibw  = imfill(Ibw, 'holes');
-%   if options.dispOn
-%       MS_S2D_ShowImage(Ibw, 'Black-white image without holes (Ibw)', options);
-%   end
-
-    % Handling complement
-    Ibwc = imcomplement(Ibw);
-    clear Ibw;
-    Ibwc = imerode(Ibwc, strel('disk', 2));
-    Ibwc = bwareaopen(Ibwc,round(300*scale));
-%   if options.dispOn | options.dispOn2
-%       MS_S2D_ShowImage(Ibwc, 'Complement of dilated black-white image (Ibwc)', options);
-%   end
 
     if length(options.mitoPr) > 0
         % Use probabilities to detect dartk structures
         norm_mitoPr = normalize_probabilities(MS_S2D_ReadProbabilities(options.mitoPr));
-        Ipr = mat2gray(round(norm_mitoPr*255));
+        weight_signals_by_probabilities = 1;
+        if weight_signals_by_probabilities
+            Igr = weight_image_by_probabilities(Igr, norm_mitoPr, options);
+            Igrbw = im2bw(Igr, 0.2);
+        else
+            Igr = mat2gray(round(norm_mitoPr*255));
+            Igrbw = im2bw(Igr, 0.2);
+        end
         if options.dispOn | options.dispOn2
-            MS_S2D_ShowImage(Ipr, 'Normalized mito probability ', options);
+            MS_S2D_ShowImage(Igr, 'Normalized mito probability ', options);
         end 
 %       if options.hist
 %           figure
@@ -129,21 +110,48 @@ function Ibwd = segment_dark_structures(Igr, Imemb, M_thr, M_thr2, options)
 %           title('Histogram of mito probabilities');
 %           waitforbuttonpress;
 %       end
-        Iprbw = im2bw(Ipr, 0.2);
-        clear Ipr;
+        clear Igr;
         if options.dispOn | options.dispOn2
-            MS_S2D_ShowImage(Iprbw, 'Thresholded mitoProb ', options);
+            MS_S2D_ShowImage(Igrbw, 'Thresholded mitoProb ', options);
         end
-        Iprbw = imdilate(Iprbw, strel('disk', 8));
-        Iprbw = imerode(Iprbw, strel('disk', 8));
-        Iprbw(Imemb > 0) = 0;
-        Iprbw = bwareaopen(Iprbw,round(200));
+        Igrbw = imdilate(Igrbw, strel('disk', 8));
+        Igrbw = imerode(Igrbw, strel('disk', 8));
+        Igrbw(Imemb > 0) = 0;
+        Igrbw  = imfill(Igrbw, 'holes');
+        Igrbw = bwareaopen(Igrbw,round(200));
         if options.dispOn | options.dispOn2
-            MS_S2D_ShowImage(Iprbw, 'After dilation/erosion ', options);
+            MS_S2D_ShowImage(Igrbw, 'After dilation/erosion ', options);
         end
-        Ibwd = Iprbw;
-        clear Iprbw;
+        Ibwd = Igrbw;
+        clear Igrbw;
     else
+        Ibw = im2bw(Igr, 1);
+        Ibw(Igr > M_thr)  = logical(1);
+        Ibw2 = im2bw(Igr, 1);
+        Ibw2(Igr < M_thr2) = logical(1);
+        clear Igr;
+        Ibw(Ibw2) = logical(0); % subtract Ibw2 from Ibw
+        clear Ibw2;
+
+        orig_imsize = size(Ibw);
+        scale = options.resize;
+        Ibw = imresize(Ibw, scale);
+        Ibw = bwareaopen(Ibw,20);
+        Ibw = MS_S2D_AddBoundaryPadding(Ibw, 1);
+        % Ibw  = imfill(Ibw, 'holes');
+%       if options.dispOn
+%           MS_S2D_ShowImage(Ibw, 'Black-white image without holes (Ibw)', options);
+%       end
+
+    % Handling complement
+        Ibwc = imcomplement(Ibw);
+        clear Ibw;
+        Ibwc = imerode(Ibwc, strel('disk', 2));
+        Ibwc = bwareaopen(Ibwc,round(300*scale));
+%       if options.dispOn | options.dispOn2
+%           MS_S2D_ShowImage(Ibwc, 'Complement of dilated black-white image (Ibwc)', options);
+%       end
+
         % Dilated BW image
         Ibwc = imfill(Ibwc, 'holes');
         Ibwc = imcomplement(Ibwc);
@@ -176,17 +184,8 @@ function norm_probs = normalize_probabilities(probs)
 
 % -----------------------------------------------------------------------------
 
-function Iw = weight_image_by_probabilities(I, options)
-    mitoPr = MS_S2D_ReadProbabilities(options.mitoPr);
-    if length(options.membPr) > 0
-        membPr = MS_S2D_ReadProbabilities(options.membPr);
-%       mitoPr(membPr > mitoPr) = 1. - membPr(membPr > mitoPr);
-        mitoPr(membPr > mitoPr) = 0;
-    end
-    DI = double(I);
-    Iw = uint8(round(DI .* (1. - mitoPr)));  % mitochondria on image are dark
-%   Iw = uint8(round((1. - mitoPr)*255));
-%   Iw = uint8(round((1. - membPr)*255));
+function Iw = weight_image_by_probabilities(I, membPr, options)
+    Iw = mat2gray(double(imcomplement(I)).*membPr);
 
 % -----------------------------------------------------------------------------
 
