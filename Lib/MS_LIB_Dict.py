@@ -14,16 +14,17 @@ def map_node_to_xyz(input_dim, input_label, output_suffix, options):
     z_min   = max(0,                    int(options.zmin))
     z_max   = min(z_min + input_dim[2], int(options.zmax))
     z_range = range(z_min, z_max)
+    print "\noptions.nx=", options.nx, " options.ny=", options.ny
     y_range = range(0, int(options.ny))
     x_range = range(0, int(options.nx))
     if options.verbose:
-        print "options.zmin=", options.zmin
-        print "input_dim[2]=", input_dim[2], "options.zmax=", options.zmax
+        print "\noptions.zmin=", options.zmin, " options.zmax=", options.zmax
+        print "input_dim[2]=", input_dim[2]
         print "x_range=", x_range, " y_range=", y_range, " z_range=", z_range
     y_size = int(round(float(input_dim[0])/float(options.ny)))
     x_size = int(round(float(input_dim[1])/float(options.nx)))
     if options.verbose:
-        print "y_size=", y_size, " x_size=", x_size
+        print "\ny_size=", y_size, " x_size=", x_size
     if y_size <= 2*int(options.dy):
         print "y overlap ", options.dy, " exceeds half of y_size ", y_size
         sys.exit()
@@ -142,7 +143,7 @@ def map_nodes_zmerge(zdim, options):
 
     dict_nodes_zmerge = {}
     dict_nodes_zmerge[1] = "BW.png"
-    dict_nodes_zmerge[2] = "Seg.png"
+    dict_nodes_zmerge[2] = "Seg.h5"
 #   dict_nodes_zmerge[3] = "RGB.png"
     return (3, dict_nodes_zmerge)
 

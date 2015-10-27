@@ -16,39 +16,51 @@ function Ibwn = MS_S2D_SegmentNeuralMembranes(inputName,fracBlack,fracBlack2,var
 
     % Input image data  
     if strcmp(class(inputName),'char') && exist(inputName, 'file') == 2   % input is image file
-        I = imread(inputName); 
+        Igr = imread(inputName); 
     else
-        I = inputName;        % input is image
+        Igr = inputName;        % input is image
     end
 
-    if length(size(I) > 2)
-        I = I(:,:,1);
+    disp(['class(Igr)=' class(Igr)]);
+    if length(size(Igr) > 2)
+        Igr = Igr(:,:,1);
     end
-    disp(['In MS_S2D_SegmentNeuralMembranes: size(I)=' num2str(size(I))]);
+    disp(['In MS_S2D_SegmentNeuralMembranes: size(Igr)=' num2str(size(Igr))]);
     disp(['options.fracBlack=' num2str(options.fracBlack)]);
-    disp(['max(I)=' num2str(max(max(I))) ' min(I)=' num2str(min(min(I)))]);
-    Igr = mat2gray(I);
+    disp(['max(Igr)=' num2str(max(max(Igr))) ' min(Igr)=' num2str(min(min(Igr)))]);
     disp(['max(Igr)=' num2str(max(max(Igr))) ' min(Igr)=' num2str(min(min(Igr)))]);
     if options.dispOn
         MS_S2D_ShowImage(Igr, 'Original image (Igr)', options);
     end
 
+    % If membrane probabilities are available,
+    % use them to accent the membrane signals
     if length(options.membPr) > 0
         membPr = MS_S2D_ReadProbabilities(options.membPr);
         if options.dispOn
             MS_S2D_ShowImage(mat2gray(membPr), 'Membrane probabilities', options);
         end
-        weight_signals_by_probabilities = 1;
-        if weight_signals_by_probabilities
-            Igr = weight_image_by_probabilities(I, membPr, options);
-        else 
-            Igr = use_probabilities_instead_of_signals(I, membPr, options);
-        end
+        Igr = weight_membrane_signals_by_probabilities(Igr, membPr, options);
         clear membPr;
         if options.dispOn
             MS_S2D_ShowImage(mat2gray(Igr), 'Weighted original image (Igr)', options);
         end
     end
+
+        % If mitochondria probabilities are available,
+    % use them to whiten out mitochondria signals
+    if length(options.mitoPr) > 0
+        mitoPr = MS_S2D_ReadProbabilities(options.mitoPr);
+        if options.dispOn
+            MS_S2D_ShowImage(mat2gray(mitoPr), 'Mitochondria probabilities', options);
+        end
+        Igr = whiten_out_mitochondria(Igr, mitoPr, options);
+        clear mitoPr;
+        if options.dispOn
+            MS_S2D_ShowImage(Igr, 'Enhanced raw map, mitochondria whitened out (Igr)', options);
+        end
+    end
+
     clear I;
 
     im_size = size(Igr);
@@ -57,9 +69,14 @@ function Ibwn = MS_S2D_SegmentNeuralMembranes(inputName,fracBlack,fracBlack2,var
     [M_thr, M_thr2] = MS_S2D_GetThresholdIntensity(Igr, 1, subsections, options);           
     clear M_thr2;
     disp(['M_thr=' num2str(max(max(M_thr)))]);
-    Ibwn = segment_neurons(Igr, M_thr, options);
-    imwrite(Ibwn, 'Ibwn_MS_S2D_SegmentNeuralMembranes.tiff');
-    Ibwn = MS_S2D_AddBoundaryPadding(Ibwn, 0);
+    Ibwn = segment_neural_membranes(Igr, M_thr, options);
+    if length(options.outBW) > 0
+        imwrite(Ibwn, 'Ibwn_MS_S2D_SegmentNeuralMembranes.png');
+    end
+    if (options.padding || length(options.outRGB) > 0 || ...
+        options.dispOn  || options.dispOn2)
+        Ibwn = MS_S2D_AddBoundaryPadding(Ibwn, 0);
+    end
 
     % Optionally output BW file
     if length(options.outBW) > 0
@@ -86,7 +103,7 @@ function Ibwn = MS_S2D_SegmentNeuralMembranes(inputName,fracBlack,fracBlack2,var
 
 % -----------------------------------------------------------------------------
 
-function Ibwn = segment_neurons(Igr, M_thr, options)
+function Ibwn = segment_neural_membranes(Igr, M_thr, options)
     % Black-white image
     %
     % Determine intensity threshold for conversion to black-white image
@@ -101,40 +118,37 @@ function Ibwn = segment_neurons(Igr, M_thr, options)
     Ibw(Igr > M_thr) = logical(1);
     clear Igr;
 
-    orig_imsize = size(Ibw);
-    scale = options.resize; 
-    Ibw = imresize(Ibw, scale);
     Ibw = bwareaopen(Ibw,20);
     imwrite(Ibw, 'Ibw1_MS_S2D_SegmentNeuralMembranes.tiff');
     if options.dispOn
         MS_S2D_ShowImage(Ibw, 'Black-white image (Ibw)', options);
     end
 
-    % Fill holes and open gaps
+     % Fill holes and open gaps
     Ibw  = MS_S2D_AddBoundaryPadding(Ibw, 0);
     Ibwf = imfill(Ibw, 'holes');
     clear Ibw;
 
     imwrite(Ibwf, 'Ibwf_MS_S2D_SegmentNeuralMembranes.tiff');
-%   Ibwf = imerode(Ibwf, strel('disk', 1));
-    Ibwn = bwareaopen(Ibwf,20);
-    Ibwn = imerode(Ibwn, strel('disk', 1));
+    Ibwn = bwareaopen(Ibwf,200);
+%   Ibwn = imerode(Ibwn, strel('disk', 1));
     clear Ibwf;
 
-%   Ibwn = MS_S2D_AddBoundaryPadding(Ibwn, 0);
     if options.dispOn | options.dispOn2
-        MS_S2D_ShowImage(Ibwn, 'Black-white image (Ibwn)', options);
+        MS_S2D_ShowImage(Ibwn, 'Cleaned BW segmentation (Ibwn)', options);
     end
-
-    Ibwn = imresize(Ibwn, orig_imsize);
-    % Optionally output results to file
-    if length(options.outBW) > 0
-        imwrite(Ibwn, options.outBW);
-    end
-    Ibwn = bwareaopen(Ibwn,200);
+    % Compute the distance transform
+    D = bwdist(Ibwn);
+    clear Ibwn;
+    % Segmentation matrix
+    L = watershed(D);
+    Ibwn = ones(size(D));
+    % BW image with thin boundaries: 
+    Ibwn(L == 0) = 0;
     if options.dispOn | options.dispOn2
         MS_S2D_ShowImage(Ibwn, 'Final segmentation of neural membranes (Ibwn)', options);
     end
+
 
 % -----------------------------------------------------------------------------
 
@@ -147,9 +161,28 @@ function Iw = use_probabilities_instead_of_signals(I, membPr, options)
 
 % -----------------------------------------------------------------------------
 
-function Iw = weight_image_by_probabilities(I, membPr, options)
-    Iw = imcomplement(mat2gray(double(imcomplement(I)).*membPr));
+function Iw = weight_membrane_signals_by_probabilities(I, membPr, options)
+    weight_multiplier = 4;
+    weighting_factor = 1. - exp(-membPr.*weight_multiplier);
+    Imin = min(min(I));
+    Iw   = mat2gray(round(double(I) - membPr .* double(I)));
 
+% -----------------------------------------------------------------------------
+
+function Igrw = whiten_out_mitochondria(Igr, mitoPr, options)
+    suppression_multiplier = 1.;  
+    suppression_factor = exp(-mitoPr .* suppression_multiplier);
+    if length(options.membPr) > 0
+        membPr = MS_S2D_ReadProbabilities(options.membPr);
+%       mitoPr(membPr > mitoPr) = 0.;
+        suppression_factor = exp(-mitoPr .* (1 - membPr) .* suppression_multiplier);
+    end
+    % Suppress motochondria signals
+    disp(['max(suppression_factor)=' num2str(max(max(suppression_factor))) ...
+         ' min(suppression_factor)=' num2str(min(min(suppression_factor)))]);
+    max_Igr = double(max(max(Igr)));
+    Igrw = mat2gray(round((double(Igr).*suppression_factor + (1.-suppression_factor) * max_Igr)/max_Igr * 255.));
+    clear Igr;
 
 % -----------------------------------------------------------------------------
 

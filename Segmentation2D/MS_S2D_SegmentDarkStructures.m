@@ -8,7 +8,7 @@
 % in a 2D intensity image  
 % 
 
-function Ibwd = MS_S2D_SegmentDarkStructures(inputName,Imemb, fracBlack,fracBlack2,varargin)   
+function Ibwd = MS_S2D_SegmentDarkStructures(inputName,fracBlack,fracBlack2,varargin)   
     warning off;
     try
         p = MS_S2D_InputParser;              % call constructor
@@ -36,12 +36,6 @@ function Ibwd = MS_S2D_SegmentDarkStructures(inputName,Imemb, fracBlack,fracBlac
         MS_S2D_ShowImage(I, 'Original image (I)', options);
     end
 
-    % Subtract membrane signals 
-    lightest_signal = max(max(I(Imemb == 0)));
-    if numel(Imemb) > 0
-        I(Imemb > 0) = lightest_signal;
-    end
-
     if options.dispOn
         MS_S2D_ShowImage(I, 'After subr=traction of membranes (I)', options);
     end
@@ -53,7 +47,7 @@ function Ibwd = MS_S2D_SegmentDarkStructures(inputName,Imemb, fracBlack,fracBlac
     clear I;
 
     [M_thr, M_thr2] = MS_S2D_GetThresholdIntensity(Igr, 2, subsections, options);      
-    Ibwd = segment_dark_structures(Igr, Imemb, M_thr, M_thr2, options);
+    Ibwd = segment_dark_structures(Igr, M_thr, M_thr2, options);
     Ibwd = MS_S2D_AddBoundaryPadding(Ibwd, 0);
 
     if options.dispOn
@@ -81,7 +75,7 @@ function Ibwd = MS_S2D_SegmentDarkStructures(inputName,Imemb, fracBlack,fracBlac
 
 % -----------------------------------------------------------------------------
 
-function Ibwd = segment_dark_structures(Igr, Imemb, M_thr, M_thr2, options)
+function Ibwd = segment_dark_structures(Igr, M_thr, M_thr2, options)
     % Black-white image
     %
     % Determine intensity threshold for conversion to black-white image
@@ -116,7 +110,6 @@ function Ibwd = segment_dark_structures(Igr, Imemb, M_thr, M_thr2, options)
         end
         Igrbw = imdilate(Igrbw, strel('disk', 8));
         Igrbw = imerode(Igrbw, strel('disk', 8));
-        Igrbw(Imemb > 0) = 0;
         Igrbw  = imfill(Igrbw, 'holes');
         Igrbw = bwareaopen(Igrbw,round(200));
         if options.dispOn | options.dispOn2

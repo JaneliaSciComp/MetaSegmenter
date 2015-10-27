@@ -25,9 +25,15 @@ if __name__ == "__main__":
 
     fin   = h5py.File(NF_probs_file, 'r')
     data_stack = numpy.array(fin['/volume']['predictions'])
-    data_stack1 = numpy.zeros([data_stack.shape[2], data_stack.shape[1], data_stack.shape[0], data_stack.shape[3]]) 
     data_stack1 = data_stack.transpose((2,1,0,3))
+    print "data_stack1.shape=", data_stack1.shape
+    data_stack2 = numpy.zeros(data_stack1.shape, dtype = data_stack.dtype)
+    data_stack2[:,:,:,0] = data_stack1[:,:,:,0]
+    data_stack2[:,:,:,1] = data_stack1[:,:,:,1]
+    data_stack2[:,:,:,2] = data_stack1[:,:,:,2]
+    data_stack2[:,:,:,3] = data_stack1[:,:,:,3]
+    print "data_stack.dtype=", data_stack.dtype, " data_stack2.dtype=", data_stack2.dtype
     fout  = h5py.File(GALA_probs_file, 'w')
-    fout.create_dataset('stack', data_stack1.shape, data = data_stack1)
+    fout.create_dataset('stack', data_stack2.shape, data = data_stack2)
 
       

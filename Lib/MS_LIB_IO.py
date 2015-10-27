@@ -10,6 +10,7 @@ from scipy import misc
 import httplib
 from pydvid import voxels, general
 import mimetypes
+import Image
 
 import MS_LIB_Dict
 import MS_LIB_Options
@@ -65,6 +66,8 @@ def get_data_dimensions(input_data, input_type, options):
             sys.exit(2)
     elif input_type == "directory":
         files = sorted(os.listdir(os.path.join(ms_data,input_data)))
+        if options.verbose:
+            print "len(files)=", len(files)
         num_files = 0
         image_size = []
         for i in range(0, len(files)):
@@ -72,34 +75,38 @@ def get_data_dimensions(input_data, input_type, options):
             myfile = os.path.join(os.path.join(ms_data,input_data), ifile)
             try:
                 image_shape = Image.open(myfile).size
+                input_dim[0:2] = [image_shape[1],image_shape[0]]
+                num_files = num_files + 1
             except:
-                myfile = os.path.join(os.path.join(ms_temp,input_data), ifile)
-            try:
-                if re.search(".png",  myfile) or \
-                   re.search(".tif",  myfile) or \
-                   re.search(".jpeg", myfile):
-                    num_files = num_files + 1
-                    if num_files == 1:
-#                       print "Reading first file", myfile," ..."
-#                       image_shape = misc.imread(myfile).shape
-                        try:
-                            # Using PIL
-                            image_shape = Image.open(myfile).size
-                        except:
+                print "Cannot open ", myfile
+                try:
+                    if re.search(".png",  myfile) or \
+                       re.search(".tif",  myfile) or \
+                       re.search(".jpeg", myfile):
+                        num_files = num_files + 1
+                        if num_files == 1:
+#                           print "Reading first file", myfile," ..."
+#                           image_shape = misc.imread(myfile).shape
                             try:
-                                # Using scipy
-                                image_shape = misc.imread(myfile).shape
+                                # Using PIL
+                                image_shape = Image.open(myfile).size
                             except:
                                 try:
-                                    # Using Matplotlib
-                                    image_shape = matplotlib.image.imread(myfile, format = 'png').shape
+                                    # Using scipy
+                                    image_shape = misc.imread(myfile).shape
                                 except:
-                                    print "Unable to read image file", myfile
-                                    sys.exit(2)
-                    input_dim[0:2] = [image_shape[1],image_shape[0]] # transpose
-            except:
-                continue
+                                    try:
+                                        # Using Matplotlib
+                                        image_shape = matplotlib.image.imread(myfile, format = 'png').shape
+                                    except:
+                                        print "Unable to read image file", myfile
+                                        sys.exit(2)
+                            input_dim[0:2] = [image_shape[1],image_shape[0]] # transpose
+                except:
+                    continue
         input_dim[2] = min(num_files, int(options.zmax)-int(options.zmin))
+        print "num_files=", num_files, " int(options.zmax)-int(options.zmin=", int(options.zmax)-int(options.zmin), " input_dim[2]=", input_dim[2]
+
     elif input_type == "DVID":
         ranges = input_data[1:len(input_data)-1].split(",")
         for i in range(0,3):
@@ -117,6 +124,7 @@ def read_input(input_data,input_type,ymin,ymax,xmin,xmax,zmin,zmax,options):
             f  = h5py.File(input_data_path, 'r')
             key = f.keys()[0]
             data = numpy.transpose(f[key])
+
             data_shape = data.shape
             if len(data.shape) == 3:
                 image_data = data[ymin:ymax, xmin:xmax, zmin:zmax]

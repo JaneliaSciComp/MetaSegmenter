@@ -164,8 +164,7 @@ def create_generate_matrices_job(outfolderpath, \
         " -Y " + str(options.ny)   + " -y " + str(options.dy) + \
         " -z " + str(zmin)         + " -Z " + str(zmax) +\
         " -L " + str(input_dim[0]) + " -W " + str(input_dim[1]) +\
-        " -H " + str(input_dim[2]) + " -f " + str(options.overlap_fraction) +\
-        " -a " + str(options.overlap_area)
+        " -H " + str(input_dim[2])
     if options.verbose:
         command_matrices += " -v "
     if options.debug:
@@ -209,7 +208,8 @@ def create_merge_job(outfolderpath, input_data, input_type,\
                       + " -Y " + str(options.ny)  \
                       + " -z " + str(zmin)        \
                       + " -Z " + str(zmax)        \
-                      + " -a " + str(options.overlap_area)
+                      + " -a " + str(options.overlap_area) \
+                      + " -f " + str(options.overlap_fraction)
     if options.verbose:
         command_merge += " -v "
     if options.debug:
@@ -286,7 +286,10 @@ def create_relabel_job(outfolderpath, input_data, input_type,\
     os.chmod(relabel_script_path, 0777)
     return relabel_script_path
 
- # -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+
+# Merge the H5 files containing labels for individual layers
+# into a single H5 stack of labels
 
 def create_epilog_job(outfolderpath, input_dim, input_label, options):
     epilog_script_path = \
@@ -298,8 +301,9 @@ def create_epilog_job(outfolderpath, input_dim, input_label, options):
     print "\ninput_label=", input_label
     output_path = os.path.join(ms_data, input_label + ".h5")
     scr.write("#!/usr/bash\n")
-    command_epilog = executable_path    + " " + ms_temp + " -t data " + \
-                     " -m _relabeled -u _y -o " + output_path
+    command_epilog = executable_path + " " + ms_temp + " -t data "   +\
+                     " -m " + input_label  + "_relabeled -u _y " +\
+                     " -o " + output_path  + " -i " + str(options.uint)                   
     if options.verbose:
         print "command_epilog=", command_epilog
     if options.verbose:

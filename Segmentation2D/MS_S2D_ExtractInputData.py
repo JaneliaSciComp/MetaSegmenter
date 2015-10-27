@@ -19,12 +19,35 @@ ms_temp = os.environ['MS_TEMP']
 
 # -----------------------------------------------------------------------
 
+# Copy probabilities from imput folder to ms_temp folder under new name
+def extract_probabilities(input_label, prob_type, z, options):
+    if prob_type == "memb_prob":
+        input_folder = os.path.join(ms_data, options.memb_prob)
+        input_files = sorted(os.listdir(input_folder))
+        input_path  = os.path.join(input_folder, input_files[z])
+        output_path = os.path.join(ms_temp, input_label +                  \
+                                   "_z" + str(z+1) + "_memb_prob.h5")
+    elif prob_type == "mito_prob":
+        input_folder = os.path.join(ms_data, options.mito_prob)
+        input_files = sorted(os.listdir(input_folder))
+        input_path  = os.path.join(input_folder, input_files[z])
+        output_path = os.path.join(ms_temp, input_label +                  \
+                                   "_z" + str(z+1) + "_mito_prob.h5")
+
+    probs_extr_command = "cp " + input_path + " " + output_path
+    if options.verbose:
+        print "Probabilities extraction command=", probs_extr_command
+    os.system(probs_extr_command)
+
+# -----------------------------------------------------------------------
+
 def extract_image_data(input_data, input_type, ymin, ymax,\
                        xmin, xmax, zmin, zmax, options):
     # Extract image data
     if input_type == "file":
+        input_data_path = os.path.join(ms_data, input_data)
         if re.search(".h5", input_data): 
-            f  = h5py.File(input_data, 'r')
+            f  = h5py.File(input_data_path, 'r')
             key = f.keys()[0]
             data = numpy.transpose(f[key])
             data_shape = data.shape
@@ -34,8 +57,8 @@ def extract_image_data(input_data, input_type, ymin, ymax,\
                 image_data = data[ymin:ymax, xmin:xmax, zmin:zmax, 1]
         elif re.search(".tif", input_data):
             if options.verbose:
-                print "tiff input_data=", input_data
-            data = numpy.transpose(tiff.imread(input_data))
+                print "tiff input_data=", input_data_path
+            data = numpy.transpose(tiff.imread(input_data_path))
             data_shape = data.shape
             if len(data.shape) == 3:
                 image_data = data[ymin:ymax, xmin:xmax, zmin:zmax]
@@ -110,7 +133,10 @@ def process_inputs(input_data, input_type, input_label, dict_node_xyz, options):
 
     # Extract image data
     image_data = extract_image_data(input_data, input_type, ymin, ymax,\
-                                    xmin, xmax, zmin, zmax, options)
+                                    xmin, xmax, z, z+1, options)
+    if len(image_data.shape) == 3:     # data from image stack file
+        image_data = numpy.squeeze(image_data, axis=2)
+
     # Extract output path
     if len(options.output_path) == 0:
         if   int(options.nx) > 1 and int(options.ny) > 1:
@@ -127,6 +153,13 @@ def process_inputs(input_data, input_type, input_label, dict_node_xyz, options):
                                                          "_z" + str(z+1) + ".png")
     else:
         output_path = options.output_path
+
+    print "options.memb_prob=", options.memb_prob
+    if len(options.memb_prob) > 0:
+        extract_probabilities(input_label, "memb_prob", z, options)
+
+    if len(options.mito_prob) > 0:
+        extract_probabilities(input_label, "mito_prob", z, options)
 
     # Ourput data
     if options.verbose:
@@ -153,7 +186,7 @@ if __name__ == "__main__":
         num_nodes, dict_node_xyz = \
             MS_LIB_Dict.map_node_to_xyz(input_dim, input_label, ".png", options)
         if options.verbose:
-            print "num_nodes=", num_nodes
+            print "num_nodes=", num_nodes, " input_label=", input_label
             print "dict_node_xyz=", dict_node_xyz
             print "input_dim=", input_dim
         if len(options.output_path) == 0 and len(options.node) == 0:

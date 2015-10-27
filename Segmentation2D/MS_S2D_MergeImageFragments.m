@@ -153,12 +153,12 @@ function [] = MS_S2D_MergeImageFragments(dir, nf0, df0, verbose0, ...
     if strcmp(dir, 'y') 
         % Produce and output labels image
         disp(['size(output_image_bw)=' num2str(size(output_image_bw))]);
-        seg_output_name = [ output_name(1:numel(output_name)-6) 'Seg.png'];
+        seg_output_name = [ output_name(1:numel(output_name)-6) 'Seg.h5'];
         disp(' ');
         disp(['...generating file ' seg_output_name ]);
         L = MS_S2D_GenerateLabelsMatrix(output_image_bw, verbose);                  
-        disp(['size(L)=' num2str(size(L)) ' class(L)='  num2str(class(L(1,1))) ' max(L)=' num2str(max(L))]);
-        imwrite(L, seg_output_name);
+        disp(['size(L)=' num2str(size(L)) ' class(L)='  num2str(class(L(1,1))) ' max(L)=' num2str(max(L(:)))]);
+        hdf5write(seg_output_name,'/main',uint64(L));
 
         produce_RGB = 0;
         if produce_RGB > 0

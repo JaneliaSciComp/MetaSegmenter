@@ -151,26 +151,31 @@ def populate_stack(nd_stack, input_dir, input_files, output_type, imdir, options
             continue
         ifile_path = os.path.join(input_dir, ifile)
         print "In populate_stack: i=", i, " ifile_path=", ifile_path
-        try:
-            print "\nTrying Image.open ..."
-            im = Image.open(ifile_path)
-            print "Using Image: max_label=", numpy.max(im)
-        except:
-            try:  
-                print "\nTrying misc.imread ..."
-                im = misc.imread(ifile_path)
-                print "Using misc.imread: max_label=", numpy.max(im)
+        if re.search(".h5", myfile):
+                f = h5py.File(ifile_path, 'r')
+                key = f.keys()[0]
+                image_data = numpy.squeeze(f[key])
+        else:
+            try:
+                print "\nTrying Image.open ..."
+                image_data = Image.open(ifile_path)
+                print "Using Image: max_label=", numpy.max(im)
             except:
-                print "\nTrying matplotlib.image.imread ..."
-                im = matplotlib.image.imread(ifile_path)
-                print "Using matplotlib: max_label=", numpy.max(im)
+                try:  
+                    print "\nTrying misc.imread ..."
+                    image_data = misc.imread(ifile_path)
+                    print "Using misc.imread: max_label=", numpy.max(im)
+                except:
+                    print "\nTrying matplotlib.image.imread ..."
+                    image_data = matplotlib.image.imread(ifile_path)
+                    print "Using matplotlib: max_label=", numpy.max(im)
 #       if output_type == "data" and len(imdir) == 0:
-#           im = normalize_image(im)
+#           image_data = normalize_image(image_data)
 #       elif output_type == "data" and len(imdir) > 0:
-#           im = scale_image(im)
+#           image_data = scale_image(image_data)
         i = i + 1
         print "Updating stack with ", ifile, " (i=", i, ")..."
-        nd_stack = update_nd_stack(nd_stack, im, i-1, output_type, options)
+        nd_stack = update_nd_stack(nd_stack, image_data, i-1, output_type, options)
         sys.stdout.flush()
     return nd_stack
 
@@ -185,19 +190,45 @@ def update_nd_stack(nd_stack, im, k, output_type, options):
 #   print "stack_shape=", stack_shape, " im.shape=", im.shape, " k=", k
     if output_type == "data":
         im_data = numpy.asarray(im)
-        print "nd_stack.shape=", nd_stack.shape, " im_data.shape=", im_data.shape 
+        print "nd_stack.shape=", nd_stack.shape, " im_data.shape=", im_data.shape , " options.uint=", options.uint
         if len(im_data.shape) == 2:
-            if re.search("Seg.png", options.match_string) or re.search("_relabeled", options.match_string):
-                print "\nUsing uint16 labels\n" 
-                im_data = numpy.array(im.getdata(), numpy.uint16).reshape(im.size[0], im.size[1])
+            if int(options.uint) == 16:
+                print "\nUsing1 uint16 labels\n" 
+                try:
+                    # im = image
+                    im_data = numpy.array(im.getdata(), numpy.uint16).reshape(im.size[0], im.size[1])
+                except:
+                    # im = numpy array
+                    im_data = numpy.uint16(im)
+            elif int(options.uint) == 32:
+                print "\nUsing1 uint32 labels\n"
+                try:
+                    # im = image
+                    im_data = numpy.array(im.getdata(), numpy.uint32).reshape(im.size[0], im.size[1])
+                except:
+                    # im = numpy array
+                    im_data = numpy.uint32(im)
+            elif int(options.uint) == 64:
+                print "\nUsing1 uint64 labels\n"
+                try:
+                    # im = image
+                    im_data = numpy.array(im.getdata(), numpy.uint64).reshape(im.size[0], im.size[1])
+                except:
+                    # im = numpy array
+                    im_data = numpy.uint64(im)
             else:
-                print "\nUsing uint8  labels\n"
-                im_data = numpy.array(im.getdata(), numpy.uint8).reshape(im.size[0], im.size[1])
+                print "\nUsing1 uint8  labels\n"
+                try:
+                    # im = image
+                    im_data = numpy.array(im.getdata(), numpy.uint8).reshape(im.size[0], im.size[1])
+                except:
+                    # im = numpy array
+                    im_data = numpy.uint8(im)
             print "type(nd_stack)=", type(nd_stack[0,0,0]), " type(im_data)=",  type(im_data[0,0])
             nd_stack[:,:,k] = im_data
         else:
             # RGB image
-            print "\nUsing uint8  labels\n"
+            print "\nUsing (RGB) uint8  labels\n"
             print "type(nd_stack)=", type(nd_stack[0,0,0,0]), " type(im_data)=",  type(im_data[0,0,0])
             im_data = numpy.array(im.getdata(), numpy.uint8).reshape(im.size[0], im.size[1], 3)
             nd_stack[:,:,k,:] = im_data
@@ -240,7 +271,7 @@ if __name__ == "__main__":
     elif not options.output_type in ["data", "labels", "mask"]:
         sys.exit("\nThe allowed input types are 'data', 'labels' and 'mask'\n")
 
-    h5_file_name = options.output_name
+    output_file_name = options.output_name
     print "input_dir=", input_dir, " match_string=", options.match_string, " unmatch_string=", options.unmatch_string
     input_files = []
     # Allow using match_string as a wild card
@@ -254,7 +285,6 @@ if __name__ == "__main__":
            (len(options.unmatch_string) == 0 or not re.search(options.unmatch_string, file)):
             input_files.append(file)
     if re.search("_z", input_files[0]):
-        print "input_files[0]=", input_files[0]
         sorted_input_files = sorted(input_files, key=function_z_cmp)
     else:
         sorted_input_files = sorted(input_files)
@@ -266,25 +296,30 @@ if __name__ == "__main__":
     list_stack = []
     print "Opening file ", os.path.join(input_dir, input_files[0]), " ... "
     myfile = os.path.join(input_dir, input_files[0])
-    try:
-        # Using PIL
-        image_data = numpy.asarray(Image.open(myfile))
-        print "Using PIL: max_label=", numpy.max(image_data)
-    except:
+    if re.search(".h5", myfile):
+        f = h5py.File(myfile, 'r')
+        key = f.keys()[0]
+        image_data = numpy.squeeze(f[key])
+    else:
         try:
-            # Using scipy
-            image_data = numpy.asarray(misc.imread(myfile))
-            print "Using scipy: max_label=", numpy.max(image_data)
+            # Using PIL
+            image_data = numpy.asarray(Image.open(myfile))
+            print "Using PIL: max_label=", numpy.max(image_data)
         except:
             try:
-                # Using Matplotlib
-                image_data = numpy.asarray(matplotlib.image.imread(myfile, format = 'png'))
-                print "Using matplotlib: max_label=", numpy.max(image_data)
+                # Using scipy
+                image_data = numpy.asarray(misc.imread(myfile))
+                print "Using scipy: max_label=", numpy.max(image_data)
             except:
-                print "Unable to read image file", myfile
-                sys.exit(2)
-    num_images = min(len(input_files), int(options.zmax)-int(options.zmin))
-    nd_stack = create_default_stack(image_data, num_images, options.output_type)
+                try:
+                    # Using Matplotlib
+                    image_data = numpy.asarray(matplotlib.image.imread(myfile, format = 'png'))
+                    print "Using matplotlib: max_label=", numpy.max(image_data)
+                except:
+                    print "Unable to read image file", myfile
+                    sys.exit(2)
+    num_inputs = min(len(input_files), int(options.zmax)-int(options.zmin))
+    nd_stack = create_default_stack(image_data, num_inputs, options.output_type)
     nd_stack = populate_stack(nd_stack, input_dir, input_files, options.output_type,"", options)
     if options.chunked:
         chunk_shape = (1, image_shape[0], image_shape[1])
@@ -302,8 +337,8 @@ if __name__ == "__main__":
                 input_file_paths = sorted(files)
             first_file_path  = input_file_paths[0]
             image_shape = misc.imread(first_file_path).shape
-            num_images  = min(len(input_files), int(options.zmax)-int(options.zmin))
-            image_stack = create_default_stack(image_shape, num_images, "data")
+            num_inputs  = min(len(input_files), int(options.zmax)-int(options.zmin))
+            image_stack = create_default_stack(image_shape, num_inputs, "data")
             image_files = os.listdir(options.image_dir)
             image_stack = populate_stack(image_stack, options.image_dir, image_files, "data", "imdir", options)
             mean_signal = numpy.mean(image_stack[nd_stack[:,:,:,0] > 0])
@@ -313,10 +348,10 @@ if __name__ == "__main__":
 
     # Transpose the array to  comply with Matlab
     nd_stack = numpy.transpose(nd_stack)
-    print "Final nd_stack.shape=", nd_stack.shape, " h5_file_name=", h5_file_name 
+    print "Final nd_stack.shape=", nd_stack.shape, " output_file_name=", output_file_name 
     # NOTE: for reasons which I don't understand, the Numpy's shape of nd_stack
     #       turns out to be inverted relative to the Matlab's size of h5 stack 
-    f  = h5py.File(h5_file_name, 'w')
+    f  = h5py.File(output_file_name, 'w')
     if not options.chunked:
         f.create_dataset('main', nd_stack.shape, data=nd_stack)    
     else:

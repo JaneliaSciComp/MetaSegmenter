@@ -4,6 +4,10 @@ import os, re, sys
 import numpy
 from PIL import Image
 
+# Purpose: given raw image file and positive labels file,
+# create a training image file, where 
+# positive examples = green, and negative examples = red
+
 if __name__ == "__main__":
     if len(sys.argv) in [4,5]:
         raw_image_file     = sys.argv[1]

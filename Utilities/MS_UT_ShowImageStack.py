@@ -29,11 +29,11 @@ if re.search(".h5", stack_file_name):
     if "segmentations" in f.keys():
         key = "segmentations"
     data0 = f[key]
-    print "data0.shape=", data0.shape
+    print "data0.shape=", data0.shape, " data0.dtype=", data0.dtype
     data =                 f[key]
     print "data.shape=", data.shape
     # Layer id is supposed to be the last dimension:
-    if data.shape[0] < min(data.shape[1], data.shape[2]):
+    if len(data.shape) > 2 and data.shape[0] < min(data.shape[1], data.shape[2]):
         data = numpy.transpose(f[key])
 elif re.search(".tif", stack_file_name):
     data = numpy.transpose(tiff.imread(stack_file_name))
@@ -42,12 +42,17 @@ else:
 
 data_shape = data.shape
 print "data_shape =", data.shape
-num_layers = data.shape[2]
-print " layer_id=", layer_id, " num_layers=", num_layers
+if len(data.shape) > 2:
+    num_layers = data.shape[2]
+    print " layer_id=", layer_id, " num_layers=", num_layers
+else:
+    num_layers = 1
 
 while layer_id <= num_layers:
-    if len(data.shape) == 3:
-        image_data = data[:,:,layer_id-1]
+    if len(data.shape) == 2:
+        image_data = numpy.uint8(data)
+    elif len(data.shape) == 3:
+        image_data = numpy.uint8(data[:,:,layer_id-1])
         #image_data = data[layer_id-1,:,:]
         if len(sys.argv) == 4:
             print "\nWarning: ignoring redundant imadge_id\n"
@@ -55,11 +60,13 @@ while layer_id <= num_layers:
         image_data = data[:,:,layer_id-1,:]
 #           sys.exit("\nLayer contains > 1 image. Please, specify image_id\n")
 
-    print "Layer=", layer_id, " max_label=", numpy.max(image_data)
+    print "Layer=", layer_id, " max_label=", numpy.max(image_data), \
+          " image_data.shape=", image_data.shape, " image_data.dtype=", image_data.dtype
 
     plot_3 = 0
     if len(image_data.shape) == 2:
 #       print "max=", numpy.amax(image_data), " min=", numpy.amin(image_data)
+        image_data[image_data > 127] = 0
         plt.imshow(image_data, cmap = cm.Greys_r) # show as grayscale image
         plt.show()
     elif len(image_data.shape) == 3:

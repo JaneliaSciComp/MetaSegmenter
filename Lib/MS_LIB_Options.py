@@ -11,6 +11,7 @@ rh_home = os.environ['RHOANA_HOME'] # where source code is located
 
 def Segmentation2D_command_line_parser(parser):
     parser.add_option("-A", "--project",dest="project_code",help="code to be used with qsub",metavar="project_code", default="flyTEM")
+    parser.add_option("-b", "--no_dark",dest="no_dark",help="skip segmentation of dark structures",metavar="no_dark", default="0")
     parser.add_option("-c", "--compile",action="store_true",dest="compile",help="compile Matlab file",metavar="compile",default=False)
     parser.add_option("-C", "--compile_all",action="store_true",dest="compile_all", help="compile all Matlab code", metavar="compile_all", default=False)
     parser.add_option("-D", "--debug",dest="debug",help="don't delete intermediate outputs", action="store_true", default=False)
@@ -18,10 +19,10 @@ def Segmentation2D_command_line_parser(parser):
     parser.add_option("-f", "--fracBlack", dest="fracBlack", help="fracBlack for detecting neurons (default=automatic)",metavar="fracBlack", default=None)
     parser.add_option("-F", "--fracBlack2",dest="fracBlack2",help="fracBlack for detect. dark str.",metavar="fracBlack2",default=None)
     parser.add_option("-i","--uint_type",dest="uint",help="8,16,32 or 64",metavar="uint",default="16")
-    parser.add_option("-l", "--nlen", dest="ysecit", help="# of subsections for adaptive thresholding in y (length) direction",metavar="nlen", default="1")
-    parser.add_option("-M", "--memb_prob",dest="memb_prob", help="HDF5 file or a folder of files containing membrane probabilities",\
+    parser.add_option("-l", "--nlen", dest="nlen", help="# of subsections for adaptive thresholding in y (length) direction",metavar="nlen", default="1")
+    parser.add_option("-M", "--memb_prob",dest="memb_prob", help="a folder of HDF5 files containing membrane probabilities",\
                             metavar="memb_prob",default="")
-    parser.add_option("-m", "--mito_prob",dest="mito_prob",help="HDF5 file or a folder of files containing mitoch. probabilities",\
+    parser.add_option("-m", "--mito_prob",dest="mito_prob", help="a folder of HDF5 files containing mitochondria probabilities",\
                             metavar="mito_prob",default="")
     parser.add_option("-N", "--maxsize",dest="msize", help="# of subsections for processing a fragment in y (length) direction",metavar="nlen",default=sys.maxint)
     parser.add_option("-n", "--node",   dest="node", help="id of the cluster node to be used", metavar="node",  default=0)
@@ -51,6 +52,10 @@ def ExtractInputData_command_line_parser(parser):
     parser.add_option("-i", "--uuid",dest="uuid",help="uuid for DVID store",default='fe7')
     parser.add_option("-L", "--length", dest="ydim", help="y-size (length) of an image", metavar="ydim", default="")
     parser.add_option("-H", "--height", dest="zdim", help="z-size (height, or # layers) of an image stack", metavar="zdim", default="")
+    parser.add_option("-M", "--memb_prob",dest="memb_prob", help="a folder of HDF5 files containing membrane probabilities",\
+                            metavar="memb_prob",default="")
+    parser.add_option("-m", "--mito_prob",dest="mito_prob", help="a folder of HDF5 files containing mitochondria probabilities",\
+                            metavar="mito_prob",default="")
     parser.add_option("-n", "--node",   dest="node", help="id of the cluster node to be used", metavar="node",  default="")
     parser.add_option("-o", "--output_path",dest="output_path",help="output path",metavar="output_path",default="")
     parser.add_option("-r", "--uri",dest="uri",help="uri for DVID store",default='/api/repo/fe7/instance')
@@ -72,7 +77,7 @@ def MergeImageFragments_command_line_parser(parser):
     parser.add_option("-d", "--direction", dest="dir", help="merge direction: x or y", metavar="dir", default="")
     parser.add_option("-D", "--debug",dest="debug",help="debugging mode; don't delete shell scripts",action="store_true",default=False)
     parser.add_option("-e", "--executable", dest="executable", help="name of matlab executable", metavar="executable", default="MS_S2D_MergeImageFragments")
-    parser.add_option("-i","--uint_type",dest="uint",help="8,16,32 or 64",metavar="uint",default="16")
+    parser.add_option("-i","--uint_type",dest="uint",help="8,16,32 or 64",metavar="uint",default="64")
     parser.add_option("-o", "--out_folder", dest="out_folder", help="where to place executable", metavar="out_folder", default=ms_home + "/Bin")
     parser.add_option("-s", "--submission_command", dest="submission_command", help="source, qsub or qsub_debug", metavar="submission_command", default="qsub")
     parser.add_option("-v", "--verbose",action="store_true",dest="verbose",help="increase the verbosity level of output",default=False)
@@ -88,15 +93,15 @@ def MergeImageFragments_command_line_parser(parser):
 
 def Fusion3D_command_line_parser(parser):
     parser.add_option("-A", "--project",dest="project_code",help="code to be used with qsub",metavar="project_code", default="flyTEM")
-    parser.add_option("-a", "--overlap_area",dest="overlap_area",help="min overlap_area",metavar="overlap_area",default="200")
+    parser.add_option("-a", "--overlap_area",dest="overlap_area",help="min ovrp.area,def=200",metavar="overlap_area",default="200")
     parser.add_option("-D", "--debug",dest="debug",help="don't delete intermediate outputs", action="store_true", default=False)
     parser.add_option("-e", "--executable",dest="executable",help="executable",metavar="executable",default="MS_S2D_Segmentation2D")
-    parser.add_option("-f", "--overlap_fraction",dest="overlap_fraction",help="overlap_fraction",metavar="overlap_fraction",default="0.5")
+    parser.add_option("-f", "--overlap_fraction",dest="overlap_fraction",help="min ovrp.frac",metavar="overlap_fraction",default="0.3")
     parser.add_option("-i","--uint_type",dest="uint",help="8,16,32 or 64",metavar="uint",default="64")
     parser.add_option("-l", "--nlen",   dest="nlen", help="# of subsections for processing a fragment in y (length) direction",metavar="nlen", default="1")
     parser.add_option("-m", "--maxsize",dest="msize", help="# of subsections for processing a fragment in y (length) direction",metavar="nlen",default=sys.maxint)
     parser.add_option("-n", "--node",   dest="node", help="id of the cluster node to be used", metavar="node",  default=0)
-    parser.add_option("-o", "--output_folder",dest="output_folder",help="output folder",metavar="output_folder",default=ms_data)
+    parser.add_option("-o", "--output_file",dest="output_file",help="output file",metavar="output_file",default="")
     parser.add_option("-p", "--processing_step_beg",dest="processing_step_beg",help="start processing from matr(1), merge(2), trav(3), relab(4) or epil(5)",metavar="processing_step_beg",default=1)
     parser.add_option("-P", "--processing_step_end",dest="processing_step_end",help="end processing with matr(1), merge(2), trav(3), relab(4) or epil(5)",metavar="processing_step_end",default=5)
     parser.add_option("-s", "--sub",dest="submission_command", help="source, qsub or qsub_debug", metavar="submission_command", default="qsub")
@@ -116,10 +121,8 @@ def Fusion3D_command_line_parser(parser):
 # -----------------------------------------------------------------------
 
 def GenerateMatrices_command_line_parser(parser):
-    parser.add_option("-a", "--overlap_area",dest="overlap_area",help="min overlap_area",metavar="overlap_area",default="200")
     parser.add_option("-d", "--dataset", dest="dataset", help="dataset in DVID store",default='test1')
     parser.add_option("-D", "--debug",dest="debug", help="debugging; don't delete shell scripts", action="store_true", default=False)
-    parser.add_option("-f", "--overlap_fraction",dest="overlap_fraction",help="overlap_fraction",metavar="overlap_fraction",default="0.3")
     parser.add_option("-i", "--uuid",dest="uuid",help="uuid for DVID store",default='fe7')
     parser.add_option("-L", "--length", dest="ydim", help="y-size (length) of an image", metavar="ydim", default="")
     parser.add_option("-H", "--height", dest="zdim", help="z-size (height, or # layers) of an image stack", metavar="zdim", default="")
@@ -142,6 +145,7 @@ def GenerateMatrices_command_line_parser(parser):
 def MergeMatrices_command_line_parser(parser):
     parser.add_option("-a", "--overlap_area",dest="overlap_area",help="min overlap_area",metavar="overlap_area",default="200")
     parser.add_option("-D", "--debug",dest="debug", help="debugging; don't delete shell scripts", action="store_true", default=False)
+    parser.add_option("-f", "--overlap_fraction",dest="overlap_fraction",help="min overlap_fraction",metavar="min overlap_fraction",default="0.3")
     parser.add_option("-n", "--node",   dest="node", help="id of the cluster node to be used", metavar="node",  default=0)
     parser.add_option("-o", "--output_path",dest="output_path",help="output path",metavar="output_path",default="")
     parser.add_option("-v", "--verbose",action="store_true",dest="verbose",help="increase the verbosity level of output",default=False)
@@ -262,10 +266,13 @@ def GalaSegmentation2D_command_line_parser(parser):
 # -----------------------------------------------------------------------
 
 def NeuroProofSegmentation2D_command_line_parser(parser):
+    parser.add_option("-c", "--classifier",dest="classifier",help="classifier file", metavar="classifier", default = "")
     parser.add_option("-d", "--training_dir",dest="training_dir",help="folder for training data",\
                       metavar="training_dir", default = "training_dir")                    
     parser.add_option("-D", "--production_dir",dest="production_dir",help="folder for production data",\
                       metavar="production_dir", default = "production_dir") 
+    parser.add_option("-i", "--ilastik_project", dest="ilp_file", help="ilastik project file", \
+                      metavar="ilastik_project", default = "")
     parser.add_option("-p", "--processing_start",dest="processing_start",help="1=train_dir, 2=prod_dir, 3=learn, 4=segm ",\
                       metavar="processing_start",default=1)
     parser.add_option("-P", "--processing_end",dest="processing_end",help="1=train_dir, 2=prod_dir, 3=learn, 4=segm ",\

@@ -97,13 +97,12 @@ def process_inputs_ymerge(input_label, xdim, ydim, node, dict_nodes_ymerge, opti
                          input_label + "_z" + str(z+1) + "_BW.png")
         command_ymerge += " " + input_path
         command_rm     += " " + input_path
-    os.system(command_ymerge)
-
     if options.verbose:
         print "In MS_S2D_MergeImageFragments.py/process_inputs_ymerge: "
         print "command_ymerge=", command_ymerge
         print "command_rm=", command_rm
 
+    os.system(command_ymerge)
     if not options.debug:
         os.system(command_rm)
 
@@ -119,7 +118,8 @@ def process_inputs_zmerge(zdim, input_label, node, dict_nodes_zmerge, options):
     executable_path = os.path.join(ms_home,"Utilities","MS_UT_CreateH5Stack.py")
     command_zmerge = executable_path    + " " + ms_temp + " -t data " + \
                      " -m " + match_str + " -u _y -o " + output_path +\
-                     " -z " + str(options.zmin) + " -Z " + str(options.zmax)
+                     " -z " + str(options.zmin) + " -Z " + str(options.zmax) +\
+                     " -i " + str(options.uint)
     if options.verbose:
         print "\ncommand_zmerge=", command_zmerge
     command_rm     = "rm -f "

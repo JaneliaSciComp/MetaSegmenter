@@ -62,14 +62,16 @@ def relabel_image_data(image_data, input_label, options):
     print "image_data.dtype=", image_data.dtype
     z = int(options.zmin) + int(options.node) -1
     labels_file = os.path.join(ms_temp, input_label + "_labels.txt")
-    labels = numpy.array(numpy.loadtxt(labels_file, delimiter='\t'))
+    labels = numpy.array(numpy.loadtxt(labels_file, delimiter='\t', dtype=numpy.uint32))
+    if options.verbose:
+        print "labels_file=", labels_file, " labels.shape=", labels.shape, " labels.dtype=", labels.dtype
     labels1 = []
     for i in range(0, labels.shape[0]):
         if labels[i][0] == z:
             labels1.append([labels[i, 1], labels[i, 2]])
     relabeled_image_data = numpy.zeros(image_data.shape, dtype=image_data.dtype)
     for i in range(0, len(labels1)):
-        print "Changing label ", int(labels1[i][0]), " for label ", int(labels1[i][1]), \
+        print "Changing label ", int(labels1[i][0]), " for ", int(labels1[i][1]), \
               " on area ", (image_data == labels1[i][0]).sum()
         relabeled_image_data[image_data == labels1[i][0]] = labels1[i][1]
 #       sys.stdout.flush()
@@ -93,14 +95,15 @@ def relabel_one_layer(input_data, input_type, options):
     z = int(options.zmin) + int(options.node) -1
     if len(options.output_path) == 0:
         output_path = os.path.join(ms_temp, input_label + "_relabeled" +\
-                                   "_z" + str(z+1) + ".png")
+                                   "_z" + str(z+1) + ".h5")
     else:
         output_path = options.output_path
 #   img = Image.fromarray(relabeled_image_data).convert('RGB')
-    img = Image.fromarray(relabeled_image_data)
+    print "relabeled_image_data.dtype=", relabeled_image_data.dtype, " relabeled_image_data.shape=", relabeled_image_data.shape
     if options.verbose:
         print "Saving the relabeled image in file: ", output_path
-    img.save(output_path)
+    f = h5py.File(output_path, 'w')
+    f.create_dataset('stack', relabeled_image_data.shape, data = relabeled_image_data, dtype = numpy.uint32)
 
 # -----------------------------------------------------------------------
 

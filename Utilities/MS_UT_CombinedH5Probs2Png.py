@@ -24,7 +24,7 @@ if __name__ == "__main__":
             infiles2.append(os.path.join(h5_dir2, file))
             outfiles.append(os.path.join(png_dir, file.split(".")[0] + ".png"))
     else:
-        sys.exit("usage: MS_UT_CombinedH5Probs2Png.py <h5_dir> <h5_dir2> <png_diri> \n")
+        sys.exit("usage: MS_UT_CombinedH5Probs2Png.py <h5_dir> <h5_dir2> <png_dir> \n")
 
     for i in range(0, len(infiles)):
         f  = h5py.File(infiles[i],  'r')   

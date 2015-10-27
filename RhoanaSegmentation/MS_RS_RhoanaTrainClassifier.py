@@ -54,10 +54,14 @@ def produce_training_images(data_tag, options):
     for i in range(0, len(file_list)):
         if options.verbose:
             print "\nCreating training images for ", file_list[i]
-        raw_file        = os.path.join(options.raw_dir, file_list[i])
-        training_file   = os.path.join(options.training_dir, file_list[i])
-        pos_labels_file = os.path.join(options.pos_labels_dir, \
-                                       file_list[i])
+        raw_file        = os.path.join(options.raw_dir,        file_list[i])
+        pos_labels_file = os.path.join(options.pos_labels_dir, file_list[i])
+        if not os.path.isfile(pos_labels_file):
+            pos_labels_file = os.path.join(options.pos_labels_dir, \
+                                           file_list[i].split(".")[0] + ".png")
+        training_file   = os.path.join(options.training_dir, \
+                                       file_list[i].split(".")[0] + ".png")
+
         command_train   = os.path.join(ms_home, "Utilities", \
                              "MS_UT_CreateTrainingImage.py") + " " + raw_file +\
                              " " + pos_labels_file + " " + training_file      
@@ -85,10 +89,13 @@ def perform_classifier_training(data_tag, options):
     for i in range(0, len(file_list)):
         file    = file_list[i]
         file_h5 = file.split(".")[0] + ".h5"
-        training_file = os.path.join(ms_data, options.training_dir, file)
+        training_file = os.path.join(ms_data, options.training_dir, file.split(".")[0] + ".png")
         features_file = os.path.join(ms_data, options.features_dir, file_h5)
         command_train += " " + training_file + " " + features_file
-    classifier_file =  os.path.join(ms_home, "RhoanaSegmentation", \
+    if len(options.output_file) > 0:
+        classifier_file = options.output_file
+    else:
+        classifier_file =  os.path.join(ms_home, "RhoanaSegmentation", \
                        options.classifier_type + "_classifier_" + options.training_type +\
                        "_" + data_tag + ".txt")
     command_train += " " + classifier_file  
@@ -110,8 +117,19 @@ def train_classifier(data_tag, options):
     if len(options.training_dir) == 0:
         options.training_dir = os.path.join(ms_data, options.training_type + \
                                          "_training_" + data_tag)
+        print "options.training_dir=", options.training_dir
+ 
+    if  os.path.isdir(options.training_dir):
+        os.system("rm -rf " + options.training_dir)
+    os.system("mkdir " + options.training_dir)
+
     if len(options.features_dir) == 0:
         options.features_dir = os.path.join(ms_data, "features_" + data_tag)  
+        print "options.features_dir=", options.features_dir
+
+    if os.path.isdir(options.features_dir):
+        os.system("rm -rf " + options.features_dir)
+    os.system("mkdir " + options.features_dir)
 
     if int(options.processing_start) <= 1:
         compute_features(data_tag, options)

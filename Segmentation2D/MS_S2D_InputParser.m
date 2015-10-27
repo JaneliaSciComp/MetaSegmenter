@@ -4,23 +4,29 @@
 
 classdef MS_S2D_InputParser < inputParser
     properties
-        defaultVerbose   = 0;
-        defaultDispOn    = 0;
-        defaultDispOn2   = 0;
-        defaultPadding   = 0;
-        defaultCloseAll  = 1;
-        defaultNumSubX   = 1;
-        defaultNumSubY   = 1;
-        defaultDX        = 50;
-        defaultDY        = 50;
-        defaultSubX      = 0;
-        defaultSubY      = 0;
-        defaultMaxSize   = Inf; 
-        defaultOutBW     = ''; % name for output black/white image file
-        defaultOutSeg    = ''; % name for output segmentation file
-        defaultOutRGB    = ''; % name for output colored labels file
-        defaultHistogram = 0;
-        defaultScale     = 1;
+        defaultVerbose      = 0;
+        defaultDispOn       = 0;
+        defaultDispOn2      = 0;
+        defaultPadding      = 0;
+        defaultCloseAll     = 1;
+        defaultNoDark       = 0; % don't detect dark structures
+        defaultNumSubX      = 1;
+        defaultNumSubY      = 1;
+        defaultDX           = 50;
+        defaultDY           = 50;
+        defaultSubX         = 0;
+        defaultSubY         = 0;
+        defaultThresh       = 0;
+        defaultThresh2      = 0;
+        defaultMaxSize      = Inf; 
+        defaultOutBW        = ''; % name for output black/white image file
+        defaultOutSeg       = ''; % name for output segmentation file
+        defaultOutRGB       = ''; % name for output colored labels file
+        defaultHistogram    = 0;
+        defaultScale        = 1;
+        defaultMembProb     = ''; % path to the membranes probability file
+        defaultMitoProb     = ''; % path to the mitochondria probability file
+        defaultMitoMembProb = ''; % path to the mitochondria probability file
     end
 
     methods
@@ -51,11 +57,14 @@ classdef MS_S2D_InputParser < inputParser
                 obj.defaultDispOn    = num2str(obj.defaultDispOn);        
                 obj.defaultDispOn2   = num2str(obj.defaultDispOn2);
                 obj.defaultCloseAll  = num2str(obj.defaultCloseAll);
+                obj.defaultNoDark    = num2str(obj.defaultNoDark);   
                 obj.defaultPadding   = num2str(obj.defaultPadding);
                 obj.defaultNumSubX   = num2str(obj.defaultNumSubX);     
                 obj.defaultNumSubY   = num2str(obj.defaultNumSubY);
                 obj.defaultSubX      = num2str(obj.defaultSubX );        
                 obj.defaultSubY      = num2str(obj.defaultSubY );        
+                obj.defaultThresh    = num2str(obj.defaultThresh);
+                obj.defaultThresh2   = num2str(obj.defaultThresh2);
                 obj.defaultDX        = num2str(obj.defaultDX);          
                 obj.defaultDY        = num2str(obj.defaultDY);                
                 obj.defaultMaxSize   = num2str(obj.defaultMaxSize);
@@ -63,23 +72,29 @@ classdef MS_S2D_InputParser < inputParser
             end
 
             % Optional parameters
-            obj.addParamValue('verbose', obj.defaultVerbose);
-            obj.addParamValue('hist',    obj.defaultHistogram);
-            obj.addParamValue('dispOn',  obj.defaultDispOn); 
-            obj.addParamValue('dispOn2', obj.defaultDispOn2); 
-            obj.addParamValue('closeAll',obj.defaultCloseAll);
-            obj.addParamValue('padding', obj.defaultPadding);
-            obj.addParamValue('nx',      obj.defaultNumSubX);
-            obj.addParamValue('ny',      obj.defaultNumSubX);
-            obj.addParamValue('dx',      obj.defaultDX);          
-            obj.addParamValue('dy',      obj.defaultDY);            
-            obj.addParamValue('sx',      obj.defaultSubX);
-            obj.addParamValue('sy',      obj.defaultSubY);
-            obj.addParamValue('maxSize', obj.defaultMaxSize);
-            obj.addParamValue('resize',  obj.defaultScale);  
-            obj.addParamValue('outBW',   obj.defaultOutBW')
-            obj.addParamValue('outSeg',  obj.defaultOutSeg);
-            obj.addParamValue('outRGB',  obj.defaultOutRGB);
+            obj.addParamValue('verbose',   obj.defaultVerbose);
+            obj.addParamValue('hist',      obj.defaultHistogram);
+            obj.addParamValue('dispOn',    obj.defaultDispOn); 
+            obj.addParamValue('dispOn2',   obj.defaultDispOn2); 
+            obj.addParamValue('closeAll',  obj.defaultCloseAll);
+            obj.addParamValue('noDark',    obj.defaultNoDark);
+            obj.addParamValue('padding',   obj.defaultPadding);
+            obj.addParamValue('nx',        obj.defaultNumSubX);
+            obj.addParamValue('ny',        obj.defaultNumSubX);
+            obj.addParamValue('dx',        obj.defaultDX);          
+            obj.addParamValue('dy',        obj.defaultDY);            
+            obj.addParamValue('sx',        obj.defaultSubX);
+            obj.addParamValue('sy',        obj.defaultSubY);
+            obj.addParamValue('thr',       obj.defaultThresh);
+            obj.addParamValue('thr2',      obj.defaultThresh2);
+            obj.addParamValue('maxSize',   obj.defaultMaxSize);
+            obj.addParamValue('resize',    obj.defaultScale);  
+            obj.addParamValue('outBW',     obj.defaultOutBW')
+            obj.addParamValue('outSeg',    obj.defaultOutSeg);
+            obj.addParamValue('outRGB',    obj.defaultOutRGB);
+            obj.addParamValue('membPr'    ,obj.defaultMembProb);
+            obj.addParamValue('mitoPr'    ,obj.defaultMitoProb);
+            obj.addParamValue('mitoMembPr',obj.defaultMitoMembProb);
             obj.KeepUnmatched = true;
             parse@inputParser(obj, fracBlack, fracBlack2, varargin{:});
         end

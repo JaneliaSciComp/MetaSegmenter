@@ -137,18 +137,27 @@ def produce_unified_omatrix(input_data, input_type, options):
             input_opath = os.path.join(ms_temp, input_label + "_overlap" +\
                                        "_y" + str(y+1) +\
                                        "_x" + str(x+1) + "_z" + str(z+1) + ".txt")
-            omatrix = numpy.loadtxt(input_opath, delimiter='\t')
-            if options.verbose:
-                print "\n"
-                print "    omatrix.shape=", omatrix[0]     
-            if options.debug:
-                print "x=", x, " y=", y
-            for k in range(1, omatrix.shape[0]):
-                i = int(omatrix[k][0])
-                j = int(omatrix[k][1])
-                value = int(omatrix[k][2])
-                if value > max(unified_omatrix[i][j], float(options.overlap_area)):
-                   unified_omatrix[i][j] = value            
+            input_apath = os.path.join(ms_temp, input_label + "_maxarea" +\
+                                       "_y" + str(y+1) +\
+                                       "_x" + str(x+1) + "_z" + str(z+1) + ".txt")
+            try:    # inout matrix may be missing due to junk data
+                omatrix = numpy.loadtxt(input_opath, delimiter='\t')
+                amatrix = numpy.loadtxt(input_apath, delimiter='\t')
+                if options.verbose:
+                    print "\n"
+                    print "    omatrix.shape=", omatrix[0]     
+                if options.debug:
+                    print "x=", x, " y=", y
+                for k in range(1, omatrix.shape[0]):
+                    i = int(omatrix[k][0])
+                    j = int(omatrix[k][1])
+                    overlap = int(omatrix[k][2])
+                    maxarea = int(amatrix[k][2])
+                    if overlap > max(unified_omatrix[i][j], int(options.overlap_area)) and \
+                       overlap > max(unified_omatrix[i][j], float(options.overlap_fraction)*maxarea):
+                       unified_omatrix[i][j] = overlap          
+            except:
+                print "Warning: skipped processing of the missing input matrix:", input_opath
     return unified_omatrix 
 
 # -----------------------------------------------------------------------
@@ -229,12 +238,12 @@ def generate_fusion_matrix(overlap_matrix, options):
 
 # -----------------------------------------------------------------------
 
-def convert_to_sparse_format(fmatrix):
-    sparse_matrix = [ fmatrix.shape ]                            
-    for i in range(1,fmatrix.shape[0]):
-        for j in range(1, fmatrix.shape[1]):
-            if fmatrix[i][j] == 1:
-                sparse_matrix.append([fmatrix[i,0], fmatrix[0,j]])
+def convert_to_sparse_format(matrix):
+    sparse_matrix = [[matrix.shape[0], matrix.shape[1], 0]]                           
+    for i in range(1,matrix.shape[0]):
+        for j in range(1, matrix.shape[1]):
+            if matrix[i][j] > 0: 
+                sparse_matrix.append([matrix[i,0], matrix[0,j], matrix[i,j]])
     return numpy.array(sparse_matrix)
 
 # -----------------------------------------------------------------------
@@ -254,13 +263,21 @@ if __name__ == "__main__":
             input_label = "ms3_" + input_data[4:]
         else:
             input_label = "ms3_" + input_data.split('.')[0][4:]
+
         unified_omatrix = produce_unified_omatrix(input_data,input_type,options)
+        output_opath = os.path.join(ms_temp, input_label + "_overlap" +\
+                                    "_z" + str(options.node) + ".txt")
+        sparse_omatrix = convert_to_sparse_format(unified_omatrix)
+        numpy.savetxt(output_opath, sparse_omatrix, fmt='%10u', delimiter='\t')
+
         unified_fmatrix = generate_fusion_matrix(unified_omatrix, options)
         if options.debug:
             check_fusion_matrix(unified_fmatrix)
         sparse_fmatrix = convert_to_sparse_format(unified_fmatrix)
+        print "sparse_fmatrix=", sparse_fmatrix
         output_fpath = os.path.join(ms_temp, input_label + "_fusion" +\
-                                "_z" + str(options.node) + ".txt")
+                                    "_z" + str(options.node) + ".txt")
+
         if options.verbose:
             print "Saving the sparse unified fusion matrix in file ", output_fpath
         numpy.savetxt(output_fpath, sparse_fmatrix, fmt='%10u', delimiter='\t')

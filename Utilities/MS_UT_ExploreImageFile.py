@@ -24,8 +24,8 @@ else:
     sys.exit("Unsupported file format")
 print "Image shape=", image_data.shape
 print "dtype=", image_data.dtype
-max_value = image_data.max()
-min_value = image_data.min()
+max_value = int(image_data.max())
+min_value = int(image_data.min())
 print "max=", max_value, " min=", min_value
 if round(max_value) == max_value and round(min_value) == min_value and max_value - min_value > 1:
     num_values = 0

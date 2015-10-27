@@ -56,7 +56,7 @@ if __name__ == "__main__":
 
     outdata2 = np.zeros([outdata.shape[0], outdata.shape[1], 3], 'uint8')
     for i in [0,1,2]:
-        outdata2[:,:,i] = np.uint8(outdata[:,:,i]/np.max(outdata[:,:,i])*255.)
+        outdata2[:,:,i] = np.uint8(outdata[:,:,i]/np.max(outdata[i,:,:])*255.)
     img = Image.fromarray(outdata2)
     img.save(RGB_name)
 

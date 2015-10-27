@@ -58,11 +58,14 @@ def compute_segmented_object_probabilities(input_data, file_list, options):
         input_file_path  = file_list[i]
         print "input_file_path=", input_file_path
         input_file       = ntpath.basename(input_file_path)     
-        output_file      = input_file.split(".")[0] + ".h5"
+        suffix    = input_file.split(".")[len(input_file.split("."))-1]
+        output_file = input_file[:(len(input_file) - len(suffix) -1)] + ".h5"
         input_tag = input_data
         if input_data[:4] == "raw_":
             input_tag = input_data[4:]
         output_dir    = os.path.join(ms_data, options.seg_type + "_prob_" + input_tag)
+        if options.verbose:
+            print "Probs output_dir=", output_dir
         if not os.path.isdir(output_dir):
             os.mkdir(output_dir)
         output_file_path = os.path.join(output_dir, output_file)
@@ -125,6 +128,7 @@ def process_input_data(input_data, input_type, input_label, options):
             filtered_input_file_list.append(input_file_list[i]) 
     if options.verbose: 
         print "input_file_list=", filtered_input_file_list 
+        print "options.processing_start=", options.processing_start
 
     if len(input_file_list) > 0:
         if int(options.processing_start) == 1:

@@ -142,9 +142,18 @@ def create_data_extraction_and_segmentation_job(outfolderpath, \
         " -X " + str(options.nx)   + " -x " + str(options.dx) + \
         " -Y " + str(options.ny)   + " -y " + str(options.dx) + \
         " -z " + str(zmin)         + " -Z " + str(zmax) +\
-        " -l " + options.nlen      + " -w " + options.nwid + \
+        " -l " + str(options.nlen) + " -w " + str(options.nwid) + \
         " -f " + my_fracBlack      + " -F " + my_fracBlack2 +\
-        " -r " + str(options.resize_scale)          
+        " -r " + str(options.resize_scale) +\
+        " -b " + str(options.no_dark)          
+    if len(options.memb_prob) > 0:
+        memb_prob_dir_path = os.path.join(ms_data, options.memb_prob)
+        command_segm_data += " -M '" + memb_prob_dir_path + "'"
+        command_extr_data += " -M '" + memb_prob_dir_path + "'"
+    if len(options.mito_prob) > 0:
+        mito_prob_dir_path = os.path.join(ms_data, options.mito_prob)
+        command_segm_data += " -m '" + mito_prob_dir_path + "'"
+        command_extr_data += " -m '" + mito_prob_dir_path + "'"
     if options.unprocessed:
         command_extr_data += " -U "
         command_segm_data += " -U "
@@ -237,7 +246,6 @@ def submit_segmentation_job(segm_script_path, base_command, options):
                                  " -o /dev/null -e /dev/null "
     else:
         command = base_command + " -V -N " + prog_name
-    command = command + " -l matlab=true "
     if options.num_slots > 1:
         command += " -pe batch " + str(options.num_slots) 
     if re.search("qsub", options.submission_command):
@@ -345,7 +353,7 @@ def submit_array_jobs(segm_script_path,  \
         jid2 = jid1
 
     jid3 = 0
-    # if options.ny == 1, still submit ymerge_job, to only produce Seg/RGB files
+    # if options.ny == 1, still submit ymerge_job, but for only producing Seg/RGB files
     if int(options.processing_start) <= 3 and int(options.processing_end) >= 3:
         jid3 = submit_ymerge_job(ymerge_script_path,base_command,jid2, options)
 
@@ -376,6 +384,7 @@ def process_input_data_high_level(input_data, input_type, input_dim, \
     else:
         fragment_xmerge_script_path = ""
 
+    # if options.ny == 1, still create ymerge_job, but for only producing Seg/RGB files
     if int(options.processing_start) <= 3:
         fragment_ymerge_script_path = \
             create_merging_job('y', outfolderpath, input_data,\
@@ -441,6 +450,19 @@ def process_input_data_low_level(dict_node_xyz, input_label,options):
                                                     "_z" + str(z+1) + "_BW.png")
     if options.verbose:
         print "input_file=", input_file, "\noutput_file=", output_file
+
+    if len(options.memb_prob) > 0:
+        input_memb_prob_file = os.path.join(ms_temp, input_label +          \
+                                            "_z" + str(z+1) + "_memb_prob.h5")
+        if options.verbose:
+            print "memb_prob_file =", input_memb_prob_file   
+
+    if len(options.mito_prob) > 0:
+        input_mito_prob_file = os.path.join(ms_temp, input_label +          \
+                                            "_z" + str(z+1) + "_mito_prob.h5")
+        if options.verbose:
+            print "mito_prob_file =", input_mito_prob_file
+        
     my_fracBlack = str(options.fracBlack)
     if my_fracBlack == "None":
         my_fracBlack = "0"
@@ -453,9 +475,14 @@ def process_input_data_low_level(dict_node_xyz, input_label,options):
                    " ny      "     + options.nlen              + " " + \
                    " nx      "     + options.nwid              + " " + \
                    " outBW   "     + output_file               + " " + \
-                   " membPr  "     + options.memb_prob         + " " + \
-                   " mitoPr  "     + options.mito_prob         + " " + \
                    " resize  "     + str(options.resize_scale)
+    if int(options.no_dark) > 0:
+        command_segm += " noDark  1 "
+    if len(options.memb_prob) > 0:
+        command_segm += " membPr " + input_memb_prob_file
+    if len(options.mito_prob) > 0:
+        command_segm += " mitoPr " + input_mito_prob_file
+
     command_rm   = "rm -f " + input_file
     if int(options.msize) < sys.maxint:             
         command_segm +=  ' maxSize '    + options.msize   
@@ -494,7 +521,7 @@ if __name__ == "__main__":
             input_label = "ms2_" + input_data.split('.')[0]
         if input_type in ["file", "directory", "DVID"]:
             if options.verbose and int(options.node) == 0:
-                print "Input type=", input_type
+                print "Input type=", input_type, " input_data=", input_data
         else:
             print "\nIncorrectly specified input data", input_data, "\n"
             parser.print_usage()
@@ -505,14 +532,18 @@ if __name__ == "__main__":
         num_nodes, dict_node_xyz = \
             MS_LIB_Dict.map_node_to_xyz(input_dim, input_label, "_BW.png", options)
         if options.verbose:
-            print "num_nodes=", num_nodes
+            print "\nint(options.node)=", int(options.node), " num_nodes=", num_nodes
+            print "options.nlen=", options.nlen
 #           print "dict_node_xyz =", dict_node_xyz
-            print "\nProcessing input data ..."
         if int(options.node) == 0 and num_nodes > 0:
+            print "\nProcessing input data high level..."
             process_input_data_high_level(input_data, input_type, input_dim, \
                 num_nodes, input_label, options)
         elif num_nodes > 0:
+            print "\nProcessing input data low  level..."
             process_input_data_low_level(dict_node_xyz, input_label, options)
+        else:
+            sys.exit("\nCannot process, since num_nodes == 0")
     elif options.compile or options.compile_all:
         sys.exit(2)
     else:

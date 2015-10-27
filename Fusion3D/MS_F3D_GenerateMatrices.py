@@ -19,7 +19,7 @@ ms_temp = os.environ['MS_TEMP']
 
 # ----------------------------------------------------------------------
 
-def generate_overlap_matrix(image_fragment1, image_fragment2, options):
+def generate_overlap_and_maxarea_matrix(image_fragment1, image_fragment2, options):
     fragment_matrix1 = numpy.matrix(image_fragment1)      
     fragment_matrix2 = numpy.matrix(image_fragment2)
     max_label1 = fragment_matrix1.max()
@@ -39,6 +39,7 @@ def generate_overlap_matrix(image_fragment1, image_fragment2, options):
         if count > 0:
             labels2.append(i)
     overlap_matrix = numpy.zeros((len(labels1)+1, len(labels2)+1), dtype=int)
+    maxarea_matrix = numpy.zeros((len(labels1)+1, len(labels2)+1), dtype=int)
     if options.verbose:
         print "len(labels2)=", len(labels2)
     overlap_matrix[0 , 0] = 0
@@ -51,14 +52,13 @@ def generate_overlap_matrix(image_fragment1, image_fragment2, options):
             overlap_matrix[i+1, j+1] = \
                 ((fragment_matrix1 == int(labels1[i]))  & \
                  (fragment_matrix2 == int(labels2[j]))).sum()
-            if  overlap_matrix[i+1, j+1] < float(options.overlap_fraction) * min(area1, area2):
-                overlap_matrix[i+1, j+1] = 0.
-            if  overlap_matrix[i+1, j+1] < float(options.overlap_area):
-                overlap_matrix[i+1, j+1] = 0.
+            if overlap_matrix[i+1, j+1] > 0:
+                maxarea_matrix[i+1, j+1] = max(max(area1, area2)
+
             if options.verbose and options.debug and overlap_matrix[i+1, j+1] > 0:
                 print "i=", i, "/", len(labels1), " j=", j, "/", len(labels2), \
                       " overlap=", overlap_matrix[i+1, j+1]
-    return overlap_matrix
+    return (overlap_matrix, maxarea_matrix)
 
 # -----------------------------------------------------------------------
 
@@ -132,6 +132,22 @@ def output_overlap_matrix(overlap_matrix, input_label, x, y, z, options):
 
 # -----------------------------------------------------------------------
 
+def output_maxarea_matrix(maxarea_matrix, input_label, x, y, z, options):
+    # Extract output path
+    if len(options.output_path) == 0:
+        output_path = os.path.join(ms_temp, input_label + "_maxarea" +\
+                                   "_y" + str(y+1) +\
+                                   "_x" + str(x+1) + "_z" + str(z+1) + ".txt")
+    else:
+        output_path = options.output_path
+
+    # Ourput data
+    if options.verbose:
+        print "Storing the maxarea matrix in file ", output_path
+    numpy.savetxt(output_path, maxarea_matrix, fmt='%10u', delimiter='\t')
+
+# -----------------------------------------------------------------------
+
 def convert_to_sparse_format(omatrix):
     sparse_omatrix = [ omatrix.shape[0]-1,  omatrix.shape[1]-1, 0 ]
     for i in range(1,omatrix.shape[0]):
@@ -176,11 +192,16 @@ def process_inputs(input_data, input_type, dict_node_xyz, options):
         print "image_fragment1.shape=", image_fragment1.shape, \
              " image_fragment2.shape=", image_fragment2.shape
         print "\n...Generating overlap matrix..."
-    overlap_matrix = generate_overlap_matrix(image_fragment1, image_fragment2, \
+    overlap_matrix, maxarea_matrix = \
+        generate_overlap_and_maxarea_matrix(image_fragment1, image_fragment2, \
                                              options) 
 #   print "overlap_matrix=\n", overlap_matrix
     sparse_overlap_matrix = convert_to_sparse_format(overlap_matrix)
     output_overlap_matrix(sparse_overlap_matrix, input_label, \
+                          x, y, zmin, options)
+
+    sparse_maxarea_matrix = convert_to_sparse_format(maxarea_matrix)
+    output_maxarea_matrix(sparse_maxarea_matrix, input_label, \
                           x, y, zmin, options)
 
 # -----------------------------------------------------------------------
