@@ -18,7 +18,7 @@ def Segmentation2D_command_line_parser(parser):
     parser.add_option("-e", "--executable",dest="executable",help="executable",metavar="executable",default="MS_S2D_Segmentation2D")
     parser.add_option("-f", "--fracBlack", dest="fracBlack", help="fracBlack for detecting neurons (default=automatic)",metavar="fracBlack", default=None)
     parser.add_option("-F", "--fracBlack2",dest="fracBlack2",help="fracBlack for detect. dark str.",metavar="fracBlack2",default=None)
-    parser.add_option("-i","--uint_type",dest="uint",help="8,16,32 or 64",metavar="uint",default="16")
+    parser.add_option("-i","--uint_type",dest="uint",help="8,16,32 or 64",metavar="uint",default="64")
     parser.add_option("-l", "--nlen", dest="nlen", help="# of subsections for adaptive thresholding in y (length) direction",metavar="nlen", default="1")
     parser.add_option("-M", "--memb_prob",dest="memb_prob", help="a folder of HDF5 files containing membrane probabilities",\
                             metavar="memb_prob",default="")
@@ -31,7 +31,7 @@ def Segmentation2D_command_line_parser(parser):
     parser.add_option("-P", "--processing_end",dest="processing_end",help="complete processing at step segm(=1),xmerg(=2),ymerg(=3),or epilog(=4) ",metavar="processing_end",default=4)
     parser.add_option("-r", "--resize",dest="resize_scale", help="scale for resizing BW image", metavar="resize_scale", default=1)
     parser.add_option("-s", "--sub",dest="submission_command", help="source, qsub or qsub_debug", metavar="submission_command", default="qsub")
-    parser.add_option("-S", "--slots",dest="num_slots", help="# of cluster slots per 1 job (default=1)", metavar="num_slots", default=1)
+    parser.add_option("-S", "--slots",dest="num_slots", help="# of cluster slots per 1 job (default=1)", metavar="num_slots", default=2)
     parser.add_option("-U", "--unprocessed",action="store_true",dest="unprocessed", help="reprocess only the data for which an output file does not exist",default=False)
     parser.add_option("-v", "--verbose",action="store_true",dest="verbose",help="increase the verbosity level of output",default=False)
     parser.add_option("-w", "--nwid",   dest="nwid", help="# of subsections for adaptive thresholding in x (width) direction", metavar="nwid",  default="1")
@@ -95,7 +95,6 @@ def Fusion3D_command_line_parser(parser):
     parser.add_option("-A", "--project",dest="project_code",help="code to be used with qsub",metavar="project_code", default="flyTEM")
     parser.add_option("-a", "--overlap_area",dest="overlap_area",help="min ovrp.area,def=200",metavar="overlap_area",default="200")
     parser.add_option("-D", "--debug",dest="debug",help="don't delete intermediate outputs", action="store_true", default=False)
-    parser.add_option("-e", "--executable",dest="executable",help="executable",metavar="executable",default="MS_S2D_Segmentation2D")
     parser.add_option("-f", "--overlap_fraction",dest="overlap_fraction",help="min ovrp.frac",metavar="overlap_fraction",default="0.3")
     parser.add_option("-i","--uint_type",dest="uint",help="8,16,32 or 64",metavar="uint",default="64")
     parser.add_option("-l", "--nlen",   dest="nlen", help="# of subsections for processing a fragment in y (length) direction",metavar="nlen", default="1")
@@ -105,7 +104,7 @@ def Fusion3D_command_line_parser(parser):
     parser.add_option("-p", "--processing_step_beg",dest="processing_step_beg",help="start processing from matr(1), merge(2), trav(3), relab(4) or epil(5)",metavar="processing_step_beg",default=1)
     parser.add_option("-P", "--processing_step_end",dest="processing_step_end",help="end processing with matr(1), merge(2), trav(3), relab(4) or epil(5)",metavar="processing_step_end",default=5)
     parser.add_option("-s", "--sub",dest="submission_command", help="source, qsub or qsub_debug", metavar="submission_command", default="qsub")
-    parser.add_option("-S", "--slots",dest="num_slots", help="# of cluster slots per 1 job (default=1)", metavar="num_slots", default=1)
+    parser.add_option("-S", "--slots",dest="num_slots", help="# of cluster slots per 1 job (default=1)", metavar="num_slots", default=4)
     parser.add_option("-U", "--unprocessed",action="store_true",dest="unprocessed", help="reprocess only the data for which an output file does not exist",default=False)
     parser.add_option("-v", "--verbose",action="store_true",dest="verbose",help="increase the verbosity level of output",default=False)
     parser.add_option("-w", "--nwid",   dest="nwid", help="# of subsections for processing a fragment in x (width) direction", metavar="nwid",  default="1")
@@ -183,7 +182,7 @@ def RelabelSegmentedData_command_line_parser(parser):
 def CreateH5Stack_command_line_parser(parser):
     parser.add_option("-a","--alpha", dest="alpha", help="smoothing coefficient",  metavar="alpha", default="0.01")
     parser.add_option("-c","--chunked",action="store_true",dest="chunked",help="each layer is chunk",metavar="chunked",default=False)
-    parser.add_option("-i","--uint_type",dest="uint",help="8,16,32 or 64",metavar="uint",default="8")
+    parser.add_option("-i","--uint_type",dest="uint",help="8,16,32 or 64",metavar="uint",default="64")
     parser.add_option("-m","--match_str", dest="match_string",help="match str. for input file names", metavar="mstr",default="")
     parser.add_option("-o","--output_name",dest="output_name",help="name of the output HDF5 file", metavar="out", default="output.h5")
     parser.add_option("-t","--type", dest="output_type", help="output type (='data','labels' or 'mask')", metavar="ot", default="")
@@ -282,6 +281,24 @@ def NeuroProofSegmentation2D_command_line_parser(parser):
     parser.add_option("-v", "--verbose",action="store_true",dest="verbose",help="increase the verbosity level of output",default=False)
     parser.add_option("-z", "--zmin",dest="zmin",help="min z-layer for production", metavar="tmin", default=0)
     parser.add_option("-Z", "--zmax",dest="zmax",help="max z-layer for production", metavar="tmax", default=sys.maxint)
+
+    return parser
+
+# ----------------------------------------------------------------------
+
+def ComputeVI_command_line_parser(parser):
+    parser.add_option("-A", "--project",dest="project_code",help="code to be used with qsub",metavar="project_code", default="flyTEM")
+    parser.add_option("-D", "--debug",dest="debug",help="don't delete intermediate outputs", action="store_true", default=False)
+    parser.add_option("-d", "--dim",  dest="dim",  help="VI dimension: 3D or 2D (default=3)", metavar="dim", default=3)
+    parser.add_option("-n", "--node",   dest="node", help="id of the cluster node to be used", metavar="node",  default=0)
+    parser.add_option("-o", "--output_file",dest="output_file",help="output file",metavar="output_file",default="")
+    parser.add_option("-p", "--processing_step_beg",dest="processing_step_beg",help="start processing from matr(1), merge(2), trav(3), relab(4) or epil(5)",metavar="processing_step_beg",default=1)
+    parser.add_option("-P", "--processing_step_end",dest="processing_step_end",help="end processing with matr(1), merge(2), trav(3), relab(4) or epil(5)",metavar="processing_step_end",default=2)
+    parser.add_option("-s", "--sub",dest="submission_command", help="source, qsub or qsub_debug", metavar="submission_command", default="qsub")
+    parser.add_option("-S", "--slots",dest="num_slots", help="# of cluster slots per 1 job (default=1)", metavar="num_slots", default=1)
+    parser.add_option("-v", "--verbose",action="store_true",dest="verbose",help="increase the verbosity level of output",default=False)
+    parser.add_option("-z", "--zmin",dest="zmin",help="min z-layer to be processed", metavar="zmin", default=0)
+    parser.add_option("-Z", "--zmax",dest="zmax",help="max z-layer to be processed", metavar="zmax", default=sys.maxint)
 
     return parser
 

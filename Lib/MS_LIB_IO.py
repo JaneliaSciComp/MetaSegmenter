@@ -34,8 +34,8 @@ def get_input_type(input_data, options):
          os.path.isdir(os.path.join(ms_data,input_data)) or \
          os.path.isdir(os.path.join(ms_temp,input_data)):
         input_type = "directory"
-    elif is_DVID_subvolume(input_data, options):
-        input_type = "DVID"
+#   elif is_DVID_subvolume(input_data, options):
+#       input_type = "DVID"
     return input_type
 
 # -----------------------------------------------------------------------------

@@ -58,38 +58,6 @@ class Tree(object):
 
 # -----------------------------------------------------------------------
 
-def check_fusion_matrix(fmatrix):
-    print "\nFusion matrix shape=", fmatrix.shape
-    print "num_cols=", len(fmatrix[0])
-    print "num_rows=", len(fmatrix[:,0])
-    sum_col = [0,0,0]
-    sum_row = [0,0,0]
-    my_shape = fmatrix.shape
-    # Explore rows
-    for i in range(1, my_shape[0]):
-        row = fmatrix[i][1:]
-        s = (row == 1).sum()
-        if s <= 2:
-            sum_col[s] +=1
-        else:
-            print "row #", i, " sum=", s
-        if not len(row) == my_shape[1]-1:
-            print "...row ", i, " contains ", len(row), " elements, not", my_shape[1]-1
-    print "sum_col=", sum_col
-    # Explore columns
-    for j in range(1, my_shape[1]):
-        col = fmatrix[1:,j]
-        s = (col == 1).sum()
-        if s <= 2:
-            sum_row[s] +=1
-        else:
-            print "col #", j, " sum=", s
-        if not len(col) == my_shape[0]-1:
-            print "...col ", j, " contains ", len(col), " elements, not", my_shape[0]-1
-    print "sum_row=", sum_row
-
-# -----------------------------------------------------------------------
-
 def initialize_labels_and_generate_maps(input_label, options):  
 
     global labels
@@ -97,7 +65,6 @@ def initialize_labels_and_generate_maps(input_label, options):
     # Generate maps
     dmap   = [  ]     # list of "down map" hashes, or the maps of a region in a given layer to region(s) of adjacent lower layer 
     umap   = [{}]     # list of "up   map" hashes, or the maps of a region in a given layer to region(s) of adjacent upper layer 
-    fmatrix= [  ]     # list of fusion matrices produced by the previous step of processing ( by MS_F3D_MergeMatrices.py )
     k = 0
     for z in range(int(options.zmin), int(options.zmax)):
         labels.append({})
@@ -108,21 +75,24 @@ def initialize_labels_and_generate_maps(input_label, options):
                                        "_z" + str(k+1) + ".txt")
             if options.verbose:
                 print "Loading unified fusion matrix ", input_fpath
-            fmatrix.append(numpy.loadtxt(input_fpath, delimiter='\t'))
-            num_rows = int(fmatrix[k][0][0])-1 # 1st row in sparse fmatrix indicates shape of original fmatrix
-            num_cols = int(fmatrix[k][0][1])-1
+            fmatrix = numpy.loadtxt(input_fpath, delimiter='\t')
             dmap.append({})
             umap.append({})
-            for r in range(1, num_rows+1):
-                dmap[k  ][r] = []
-            for c in range(1, num_cols+1):
-                umap[k+1][c] = []
-            my_shape = fmatrix[k].shape
+            my_shape = fmatrix.shape
             for i in range(1, my_shape[0]):
-                r = int(fmatrix[k][i][0])
-                c = int(fmatrix[k][i][1])
-                dmap[k  ][r].append(c)             
-                umap[k+1][c].append(r)
+                r = int(fmatrix[i][0])
+                c = int(fmatrix[i][1])
+                if r > 0 and not r in dmap[k  ].keys(): # negative r means startpoint of a new object
+                    dmap[k  ][r] = []
+                if r > 0 and c > 0:
+                    dmap[k  ][r].append(c)         
+                if c > 0 and not c in umap[k+1].keys():
+                    umap[k+1][c] = []    
+                if r > 0 and c > 0:
+                    umap[k+1][c].append(r)
+            if options.debug:
+                print "z=", z, "; dmap[k  ].keys()=", sorted(dmap[k  ].keys())
+                print "z=", z, "; umap[k+1].keys()=", sorted(umap[k+1].keys()), "\n"
         else:
             # Process the last layer
             dmap.append({})
@@ -137,13 +107,14 @@ def produce_fusion_trees(dmap, umap, options):
     global recursion_depth
     num_trees = 0;
     print "options.zmax=", options.zmax, " options.zmin=", options.zmin
-    current_label = 1
+    current_label = 1 # current new label to be assigned
     for z in range(int(options.zmin), int(options.zmax)):
         # Generate trees with root nodes at layer z
         if z < int(options.zmax)-1:
-            for r in dmap[z].keys():       # r is the current label    
+            print "Number of old nonzero labels at layer=", z, " is ", len(dmap[z].keys())
+            for r in sorted(dmap[z].keys()):       # r is the current old label    
                 if not r in labels[z].keys():         
-                    print "Processing label ", r, " at layer ", z , " labels[z][r] was None, became=", r
+                    print "Processing label ", r, " at layer ", z , " labels[z][r] was None, became=", current_label
                     labels[z][r] = current_label
                     recursion_depth = 0
                     t = Tree([z,r], current_label)     # start new tree
@@ -154,9 +125,9 @@ def produce_fusion_trees(dmap, umap, options):
                     print "\n*************************************************"
                     current_label = current_label + 1
         else:
-            for r in umap[z].keys():
+            for r in sorted(umap[z].keys()):
                 if not r in labels[z].keys():         
-                    print "Processing label ", r, " at layer ", z , " labels[z][r] was None, became=", r
+                    print "Processing label ", r, " at layer ", z , " labels[z][r] was None, became=", current_label
                     labels[z][r] = current_label
                     recursion_depth = 0
                     t = Tree([z,r], current_label)     # start new tree

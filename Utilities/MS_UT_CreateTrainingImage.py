@@ -23,11 +23,11 @@ pos_BW_data  = numpy.array(Image.open(pos_BW_image_file))
 pos_BW_shape = pos_BW_data.shape
 RGB_shape    = (pos_BW_shape[0],pos_BW_shape[1],3)
 RGB_data     = numpy.zeros(RGB_shape, 'uint8')
-if re.search("memb", pos_BW_image_file) and len(neg_BW_image_file) == 0:      
+if re.search("memb", pos_BW_image_file) and not re.search("mito", pos_BW_image_file) and len(neg_BW_image_file) == 0:      
     # train membranes vs the rest: membranes=black, the rest =white
     RGB_data[pos_BW_data==  0,1] = 255   # positive examples: black -> green
     RGB_data[pos_BW_data==255,0] = 255   # negatice examples: white -> red
-elif len(neg_BW_image_file) == 0:    
+elif re.search("mito", pos_BW_image_file) and len(neg_BW_image_file) == 0:    
     # train mito or mito-membranes vs the rest
     RGB_data[pos_BW_data==255,1] = 255   # positive examples: white -> green
     RGB_data[pos_BW_data==  0,0] = 255   # negatice examples: black -> red

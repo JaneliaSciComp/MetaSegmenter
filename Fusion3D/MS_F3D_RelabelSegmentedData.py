@@ -60,20 +60,26 @@ def get_image_data(input_data, input_type, options):
 
 def relabel_image_data(image_data, input_label, options):
     print "image_data.dtype=", image_data.dtype
+    print "num_labels in image data=", len(numpy.unique(image_data))
+    print "labels in image data=", numpy.unique(image_data)
+
     z = int(options.zmin) + int(options.node) -1
     labels_file = os.path.join(ms_temp, input_label + "_labels.txt")
-    labels = numpy.array(numpy.loadtxt(labels_file, delimiter='\t', dtype=numpy.uint32))
+    labels = numpy.array(numpy.loadtxt(labels_file, delimiter='\t', dtype=numpy.uint64))
     if options.verbose:
-        print "labels_file=", labels_file, " labels.shape=", labels.shape, " labels.dtype=", labels.dtype
+        print "z=", z, " labels_file=", labels_file, " labels.shape=", labels.shape, " labels.dtype=", labels.dtype
     labels1 = []
+    labels2 = []
     for i in range(0, labels.shape[0]):
         if labels[i][0] == z:
-            labels1.append([labels[i, 1], labels[i, 2]])
+            labels1.append(labels[i, 1])
+            labels2.append(labels[i, 2])
+    print "num_labels in the labels file=", len(labels1)
     relabeled_image_data = numpy.zeros(image_data.shape, dtype=image_data.dtype)
     for i in range(0, len(labels1)):
-        print "Changing label ", int(labels1[i][0]), " for ", int(labels1[i][1]), \
-              " on area ", (image_data == labels1[i][0]).sum()
-        relabeled_image_data[image_data == labels1[i][0]] = labels1[i][1]
+        print "Changing label ", int(labels1[i]), " for ", int(labels2[i]), \
+              " on area ", (image_data == labels1[i]).sum()
+        relabeled_image_data[image_data == labels1[i]] = labels2[i]
 #       sys.stdout.flush()
     return relabeled_image_data
 
@@ -88,8 +94,12 @@ def relabel_one_layer(input_data, input_type, options):
         input_label = "ms3_" + input_data.split('.')[0][4:]
 
     # Extract image data
-    image_data = numpy.matrix(get_image_data(input_data, input_type, options))
+    image_data = numpy.array(get_image_data(input_data, input_type, options))
+    if options.verbose:
+        print "num_zeros in input=", (image_data == 0).sum()
     relabeled_image_data = relabel_image_data(image_data, input_label, options)
+    if options.verbose:
+        print "num_zeros in output=", (relabeled_image_data == 0).sum()
     
     # Store the relabeled data 
     z = int(options.zmin) + int(options.node) -1
@@ -103,7 +113,7 @@ def relabel_one_layer(input_data, input_type, options):
     if options.verbose:
         print "Saving the relabeled image in file: ", output_path
     f = h5py.File(output_path, 'w')
-    f.create_dataset('stack', relabeled_image_data.shape, data = relabeled_image_data, dtype = numpy.uint32)
+    f.create_dataset('stack', relabeled_image_data.shape, data = relabeled_image_data, dtype = numpy.uint64)
 
 # -----------------------------------------------------------------------
 
