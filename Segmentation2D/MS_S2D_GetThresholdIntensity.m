@@ -9,66 +9,87 @@
 % (so that every pixel will get its own threshold)
 %        
 
-function [M_thr, M_thr2] = MS_S2D_GetThresholdIntensity(Igr, fracBlack_id, subsections, options)
-    % fracBlack_id == 1 for detection of neural boundaries and =2 for dark structures
-    % Handle inputs
-    num_edges  = 255; 
-
+function [M_thr1, M_thr2, M_thr] = MS_S2D_GetThresholdIntensity(Igr, subsections, options)
+    
     % Compute threshold intrensities for different regions
     nx = int32(options.nx);
     ny = int32(options.ny);
     dx = int32(options.dx);
     dy = int32(options.dy);
     
-    thresholds_reg = zeros(ny, nx);
-    thresholds_reg2= zeros(ny, nx);
-    y_center = int32(zeros(1, ny));
-    x_center = int32(zeros(1, nx));
-    disp(['fracBlack_id=' num2str(fracBlack_id) ' size(Igr)=' num2str(size(Igr)) ' num_subsections=' num2str(nx * ny) ]);
+    thresholds1 = zeros(ny, nx);
+    thresholds2 = zeros(ny, nx);
+    thresholds  = zeros(ny, nx);
+    y_center    = int32(zeros(1, ny));
+    x_center    = int32(zeros(1, nx));
+    disp(' ');
+    disp(['size(Igr)=' num2str(size(Igr)) ' num_subsections=' num2str(nx * ny) ]);
+    max_Igr = max(max(Igr));
+    if max_Igr > 255
+        Igr = mat2gray(double(Igr)/max_Igr);
+    end
+    disp(['In MS_S2D_GetThresholdIntensity: max(Igr)=' num2str(max(max(Igr)))]);
+
+    size1 = int32(size(Igr,1));
+    size2 = int32(size(Igr,2));
+
+    fid = '';
+    if length(options.outThr) > 0
+        fid = fopen(options.outThr, 'w');
+    end
     for k=1:numel(subsections)
         iy = 1 + floor(double(k-1)/double(nx));
         jx = k - nx*(iy -1);
         y_center(iy) = int32(round(mean(subsections(k).ypixels)));
         x_center(jx) = int32(round(mean(subsections(k).xpixels)));
+        [ymin ymax] = get_bounds(iy, ny, y_center(1), size1);
+        [xmin xmax] = get_bounds(jx, nx, x_center(1), size2);
         Igr_reg = Igr(subsections(k).ypixels,subsections(k).xpixels);
-        if fracBlack_id == 1 
-            if length(options.membPr) == 0 
-                [thr, thr2] = get_threshold_intensity3_for_one_subsection(iy, jx, Igr_reg,...  
-                              fracBlack_id, num_edges, options);
-            else
-                thr         = get_threshold_intensity2_for_one_subsection(iy, jx, Igr_reg,...
-                              fracBlack_id, num_edges, options);
-                thr2 = thr;
-            end
-        else % fracBlack_id == 2 
-            if length(options.mitoPr) == 0
-                [thr, thr2] = get_threshold_intensity3_for_one_subsection(iy, jx, Igr_reg,...
-                              fracBlack_id, num_edges, options);
-            else
-                thr2        = get_threshold_intensity2_for_one_subsection(iy, jx, Igr_reg,...
-                                  fracBlack_id, num_edges, options);
-                thr = thr2;
-            end
+        [thr1, thr2, thr] = get_threshold_intensity_for_one_subsection([ymin ymax], ...
+                                [xmin xmax], Igr_reg, options, fid);
+        thresholds1(iy, jx) = thr1;
+        thresholds2(iy, jx) = thr2;
+        thresholds( iy, jx) = thr;
+    end
+    
+    if fid ~= ''
+        fclose(fid);
+    end
+
+    M_thr1 = do_not_interpolate_intensity_thresholds(Igr, nx, ny, ...
+                 x_center, y_center, thresholds1);
+    M_thr2 = do_not_interpolate_intensity_thresholds(Igr, nx, ny, ...
+                 x_center, y_center, thresholds2);
+    M_thr  = do_not_interpolate_intensity_thresholds(Igr, nx, ny, ...
+                 x_center, y_center, thresholds);
+
+% -- --------------------------------------------------------------------------
+
+function M_thr = do_not_interpolate_intensity_thresholds(Igr, nx, ny, ...
+                 x_center, y_center, thresholds_reg)
+    size1 = int32(size(Igr,1));
+    size2 = int32(size(Igr,2));
+    M_thr = zeros(size(Igr));
+
+    for iy=1:ny
+        [ymin, ymax] = get_bounds(iy, ny, y_center(1), size1);
+        for jx=1:nx
+            [xmin, xmax] = get_bounds(jx, nx, x_center(1), size2);
+            M_thr(ymin:ymax, xmin:xmax) = thresholds_reg(int32(iy),int32(jx));
         end
-        thresholds_reg(iy, jx)  = thr;
-        thresholds_reg2(iy, jx) = thr2;
     end
 
-    method = 'linear'; % alternatives: 'ms' 'linear  'nearest' 'spline'  'cubic'
-%   method = 'nearest';
-%   method = 'spline';
-    if strcmp(method, 'ms') | (nx == 1 & ny == 1)
-        M_thr = interpolate_intensity_thresholds_ms(Igr, nx, ny, ...
-                     x_center, y_center, thresholds_reg);
-        M_thr2= interpolate_intensity_thresholds_ms(Igr, nx, ny, ...
-                     x_center, y_center, thresholds_reg2);
+% -- --------------------------------------------------------------------------
+
+function [ind_min, ind_max] = get_bounds(i, n, center, my_size)
+    if i < n
+        ind_min = 1 + (i -1)*center*2;
+        ind_max =      i    *center*2;
     else
-        M_thr = interpolate_intensity_thresholds_matlab(Igr, nx, ny, ...
-                     dx, dy, x_center, y_center, thresholds_reg, method);
-        M_thr2= interpolate_intensity_thresholds_matlab(Igr, nx, ny, ...
-                     dx, dy, x_center, y_center, thresholds_reg2, method);
+        ind_min = 1 + (i -1)*center*2;
+        ind_max = my_size;
     end
-
+    
 % -- --------------------------------------------------------------------------
 
 function M_thr = interpolate_intensity_thresholds_matlab(Igr, nx, ny, ...
@@ -182,33 +203,70 @@ function M_thr = interpolate_intensity_thresholds_ms(Igr, nx, ny, ...
 
 % -- --------------------------------------------------------------------------
 
-function display_histogram2(Igr, Hist, edges, A_B, mu_B, sig_B,...
-                           A_W, mu_W, sig_W, my_title, options)
-%   clear; clc;
-    gauss_B = zeros(size(edges));
-    gauss_W = zeros(size(edges));
-    gauss_S = zeros(size(edges)); % sum of 2 gaussians
-    for i=1:numel(edges)
-        gauss_B(i) = A_B*exp(-((edges(i)-mu_B)/sig_B)^2);
-        gauss_W(i) = A_W*exp(-((edges(i)-mu_W)/sig_W)^2);
-        gauss_S(i) = gauss_B(i) + gauss_W(i);
+function [threshold, dist1, dist2] = ...
+    get_optimal_threshold_using_bisection(Igr, threshold1, threshold2, options)
+    Ibw1 = MS_S2D_AddBoundaryPadding(im2bw(Igr/255., threshold1/255.), 0);
+    Ibw2 = MS_S2D_AddBoundaryPadding(im2bw(Igr/255., threshold2/255.), 0);
+
+    [dist, ind] = MS_S2D_BWDistance(Ibw1, Ibw2, options.verbose);
+    dist1 = dist;
+    dist2 = dist;
+    disp(['dist=' num2str(dist)]);
+    threshold1_best = threshold1;
+    threshold2_best = threshold2;
+    while (threshold1_best - threshold2_best) > 1
+        threshold = round((threshold1_best + threshold2_best)/2);
+        Ibw = MS_S2D_AddBoundaryPadding(im2bw(Igr/255., threshold/255.), 0);
+        [dist1, ind] = MS_S2D_BWDistance(Ibw1, Ibw, 0);
+        [dist2, ind] = MS_S2D_BWDistance(Ibw2, Ibw, 0);
+        if dist1 < dist2
+%           Ibw1 = MS_S2D_AddBoundaryPadding(im2bw(Igr/255., threshold/255.), 0);
+            threshold1_best = threshold;
+        else
+%           Ibw2 = MS_S2D_AddBoundaryPadding(im2bw(Igr/255., threshold/255.), 0);
+            threshold2_best = threshold;
+        end
     end
 
-    disp(['numel(edges)=' num2str(numel(edges)) ' numel(Hist)=' num2str(numel(Hist))]);
-    figure
-%   imhist(Igr);
-    bar(edges, Hist);
-    hold on;
-    plot(edges,gauss_B,'color','r', 'LineWidth',3);
-    hold on;
-    plot(edges,gauss_W,'color','r', 'LineWidth',3);
-    hold on;
-    plot(edges,gauss_S,'color','green', 'LineWidth',3);
-    title(my_title);
-    waitforbuttonpress;
-    if options.closeAll
-        close all;
+    % Computing the final values
+    threshold = threshold1_best;
+    Ibw = MS_S2D_AddBoundaryPadding(im2bw(Igr/255., threshold/255.), 0);
+    [dist1, ind] = MS_S2D_BWDistance(Ibw1, Ibw, 0);
+    [dist2, ind] = MS_S2D_BWDistance(Ibw2, Ibw, 0);
+
+% -- --------------------------------------------------------------------------
+
+function [threshold] = get_optimal_threshold(Igr, threshold1, threshold2, options)
+    Ibw1 = MS_S2D_AddBoundaryPadding(im2bw(Igr/255., threshold1/255.), 0);
+    Ibw2 = MS_S2D_AddBoundaryPadding(im2bw(Igr/255., threshold2/255.), 0);
+    Ibw_prev = Ibw1;
+    [dist12, ind12] = MS_S2D_BWDistance(Ibw_prev, Ibw2, 0);
+    disp(' ');
+    disp(['dist12=' num2str(dist12)]);
+
+    threshold      = threshold1;
+    threshold_best = threshold1;
+    disp(['... before while loop threshold1=', num2str(threshold1) ' threshold2=' num2str(threshold2) ]);
+    while (threshold > threshold2)
+        threshold = threshold -1;
+        Ibw = MS_S2D_AddBoundaryPadding(im2bw(Igr/255., threshold/255.), 0);
+        [dist , ind ] = MS_S2D_BWDistance(Ibw_prev, Ibw, 0);
+        [dist1, ind1] = MS_S2D_BWDistance(Ibw, Ibw1, 0);
+        [dist2, ind2] = MS_S2D_BWDistance(Ibw, Ibw2, 0);
+%       disp(['threshold=' num2str(threshold) ' dist=' num2str(dist)]);
+        threshold_best = threshold+1;
+        if (dist1 > dist2)
+            disp(['... breaking at dist=', num2str(dist)]);
+            break;
+        end
+        Ibw_prev = Ibw;
     end
+
+    % Computing the final values
+    disp(' ');
+    disp(['threshold_best=' num2str(threshold_best) ' dist_best=' num2str(dist) ' ind_best=' num2str(ind) ' dist2=' num2str(dist2)]);
+    threshold = threshold_best;
+    Ibw = MS_S2D_AddBoundaryPadding(im2bw(Igr/255., threshold_best/255.), 0);
 
 % -- --------------------------------------------------------------------------
 
@@ -217,41 +275,53 @@ function display_histogram2(Igr, Hist, edges, A_B, mu_B, sig_B,...
 %   vol. SMC-9, NO. 1, JANUARY 1979 )
 %
 
-function [threshold] = get_threshold_intensity2_for_one_subsection(iy, jx, Igr, ...
-                                       fracBlack_id, num_edges, options);
-    if fracBlack_id == 1 && options.thr > 0
+function [threshold1, threshold2, threshold] = ...
+          get_threshold_intensity_for_one_subsection(ybounds, xbounds, Igr, ...
+                                                     options, fid);
+    disp(' ');
+    disp(['In get_threshold_intensity_for_one_subsection: max(Igr)=' num2str(max(max(Igr)))]);
+    if options.thr > 0
         threshold = options.thr;
-    elseif fracBlack_id == 2 && options.thr2 > 0
+    elseif options.thr2 > 0
         threshold = options.thr2;
     else
-        Igr = round(double(Igr) * 255.); 
-        threshold = MS_S2D_GetOtsuThresholds(Igr, 1);
+        if max(max(Igr)) <= 1
+            Igr = round(double(Igr) * 255.); 
+        end
+        disp(['    max(Igr)=' num2str(max(max(Igr))) ' min(Igr)=' num2str(min(min(Igr)))]);
+        disp(' ');
+        threshold1 = 0;
+   
+        threshold_Otsu =  MS_S2D_GetOtsuThresholds(Igr, 255, 1);
+        thresh = multithresh(Igr, 2);
+        threshold1 = min(threshold_Otsu, thresh(2));
+        threshold_Otsu2 = MS_S2D_GetOtsuThresholds(Igr, threshold_Otsu, 1);
+        threshold2 = min(threshold_Otsu2, thresh(1));
+        disp(' ');
+        disp(['threshold1=', num2str(threshold1) ' threshold2=' num2str(threshold2)]);
+
+        % Compute the distance between BW images
+        Ibw1 = MS_S2D_AddBoundaryPadding(im2bw(Igr/255., threshold1/255.), 0);
+        Ibw2 = MS_S2D_AddBoundaryPadding(im2bw(Igr/255., threshold2/255.), 0);
+
+        [dist, ind] = MS_S2D_BWDistance(Ibw1, Ibw2, options.verbose);
+        [threshold, dist1, dist2] = get_optimal_threshold_using_bisection(Igr, threshold1, threshold2, options);
+%       [threshold] = get_optimal_threshold(Igr, threshold1, threshold2, options);
+        disp(' ');
+        disp(['optimal_threshold= '  num2str(threshold)]);
+        if length(options.outThr > 0)
+            fprintf(fid, 'y_min,max= %d %d x_min,max= %d %d Otsu1_thr= %d Otsu2_thr= %d optimal_thr= %d\n', ...
+                    ybounds, xbounds, threshold1, threshold2, threshold);
+            disp(['y_min,max= ' num2str(ybounds) ' x_min,max= ' num2str(xbounds) ...
+                  ' Otsu1_thr= ' num2str(threshold1) ' Otsu2_thr= '  num2str(threshold2) ...
+                  ' dist= '     num2str(dist)]);
+        end
     end
-
-
-% -- --------------------------------------------------------------------------
-
-function [threshold, threshold2] = get_threshold_intensity3_for_one_subsection(i, j, Igr, ...
-                                       fracBlack_id, num_edges, options);
-    Igr = round(double(Igr) * 255.);
-    thresholds = MS_S2D_GetOtsuThresholds(Igr, 2);
-
-    if fracBlack_id == 1 && options.thr > 0
-        thresholds(1) = options.thr;
-    elseif fracBlack_id == 2 && options.thr2 > 0
-        thresholds(2) = options.thr2;
-    end
-
-    threshold  = thresholds(1);
-    threshold2 = thresholds(2);
-
-    disp(['threshold=' num2str(thresholds(1)) ' threshold2=' num2str(thresholds(2))]);
-    disp(['Final threshold=' num2str(threshold)]);
 
 % -----------------------------------------------------------------------------
 
 function output_usage_message()
-    disp('Usage: MS_S2D_GetThresholdIntensity(grayScaleImage [,desired_fraction_of_black [,num_edges]])');
+    disp('Usage: MS_S2D_GetThresholdIntensity(grayScaleImage [,desired_fraction_of_black ])');
     return
 
 % -----------------------------------------------------------------------------
@@ -291,16 +361,4 @@ function threshold_intensity = get_threshold_intensity(cum_hist, fracBlack,...
 function fracBlack = get_fracBlack(cum_hist, threshold_intensity, edges, verbose)
     fracBlack = cum_hist(max(find(edges < threshold_intensity)));
 
-% -----------------------------------------------------------------------------
-
-function edges = compute_edges(num_edges)
-    edges = zeros(1, num_edges);
-    step = 1/double(num_edges-1);
-    edges(1) = 0.;
-    edges(2) = step/2.;
-    edges(num_edges  ) = 1.;
-    edges(num_edges-1) = 1. - step/2.;
-    for i=3:(num_edges-2)
-        edges(i) = edges(i-1) + step;
-    end
 

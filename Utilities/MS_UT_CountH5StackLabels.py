@@ -39,10 +39,14 @@ if __name__ == "__main__":
     largest_label_count = 0
     for label in all_labels:
        num_labels[str(label)] = (data == label).sum()
+       num_layers = 0
+       for i in range(data_shape[2]):
+           if (data[:,:,i] == label).sum() > 0:
+               num_layers += 1
        if int(label) > 0 and  largest_label_count < num_labels[str(label)]:
            largest_label_count = num_labels[str(label)]
            largest_label       = str(label)
-       print "label=", label, " size=", num_labels[str(label)], \
+       print "label=", label, " size=", num_labels[str(label)], " num_layers=", num_layers, \
              " largest_label=", largest_label, " largest_size=", largest_label_count
        if len(data_shape) > 2:
            print  " frac_size=", float(largest_label_count)/float(data_shape[0]*data_shape[1]*data_shape[2])

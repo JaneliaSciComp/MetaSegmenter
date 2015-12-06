@@ -3,6 +3,12 @@
 # Copyright (C) 2015 by Howard Hughes Medical Institute.
 #
 
+# Purpose: compare segmentation stacks using the VI criterion
+# as defined in:
+# Marina Meila, "Comparing clusterings.an information based distance"
+# Journal of Multivariate Analysis 98 (2007) 873 - 895
+#
+
 import os, sys, re 
 import h5py
 import numpy
@@ -151,23 +157,24 @@ def get_counts(z, data1, data2, options):
         print "len(labels1)=", len(labels1), " len(keys1)=", len(N1.keys()), \
              " len(labels2)=", len(labels2), " len(keys2)=", len(N2.keys())
     if options.verbose:
-        print "N1.values=", N1.values()
-        print "N2.values=", N2.values()
+        print "\nN1.values=", N1.values()
+        print "\nN2.values=", N2.values()
+        print "\nN12.values=", N12.values()
 
     return (N1, N2, N12)
 
 # -------------------------------------------------------------------------------
 
 def output_counts(z, label1, label2, N1, N2, N12, options):
-    output_path1  = os.path.join(ms_temp, "VI_" + label1 + "_" + label2 + "N1_counts_z"  + str(z) + ".json")
+    output_path1  = os.path.join(ms_temp, "VI_" + label1 + "_" + label2 + "_N1_counts_z"  + str(z) + ".json")
     with open(output_path1, 'w') as fp:
         json.dump(N1, fp)
 
-    output_path2  = os.path.join(ms_temp, "VI_" + label1 + "_" + label2 + "N2_counts_z"  + str(z) + ".json")
+    output_path2  = os.path.join(ms_temp, "VI_" + label1 + "_" + label2 + "_N2_counts_z"  + str(z) + ".json")
     with open(output_path2, 'w') as fp:
         json.dump(N2, fp)
 
-    output_path12 = os.path.join(ms_temp, "VI_" + label1 + "_" + label2 + "N12_counts_z" + str(z) + ".json")
+    output_path12 = os.path.join(ms_temp, "VI_" + label1 + "_" + label2 + "_N12_counts_z" + str(z) + ".json")
     with open(output_path12, 'w') as fp:
         json.dump(N12, fp)
 
@@ -235,7 +242,7 @@ def submit_all_jobs(compute_counts_script_path, epilog_script_path, options):
 def process_inputs_high_level(num_layers, stack1, stack2, options):
 
     label1 = ntpath.basename(stack1).split('.')[0]
-    label2 = ntpath.basename(stack1).split('.')[0]
+    label2 = ntpath.basename(stack2).split('.')[0]
 
     print "options.processing_step_beg=", options.processing_step_beg
     if int(options.processing_step_beg) == 1:
@@ -284,7 +291,7 @@ def process_inputs_low_level(num_layers, stack1, stack2, options):
     print "data1.shape=", data1.shape, " data2.shape=", data2.shape
     # Output results
     label1 = ntpath.basename(stack1).split('.')[0]
-    label2 = ntpath.basename(stack1).split('.')[0]
+    label2 = ntpath.basename(stack2).split('.')[0]
     output_counts(z, label1, label2, N1, N2, N12, options)
 
 # -----------------------------------------------------------------------------
@@ -320,6 +327,9 @@ if __name__ == "__main__":
     if not num_layers1 == num_layers2:
         print "num_layers1=", num_layers1, " num_layers2=", num_layers2
         sys.exit('Number of layers in the input files must be the same')
+    else:
+        options.zmin = max(int(options.zmin), 0)
+        options.zmax = min(int(options.zmax), num_layers1)
     
     stack1_path = os.path.join(ms_data, stack_file_name1)
     stack2_path = os.path.join(ms_data, stack_file_name2)

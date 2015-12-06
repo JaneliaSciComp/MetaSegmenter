@@ -3,6 +3,12 @@
 # Copyright (C) 2015 by Howard Hughes Medical Institute.
 #
 
+# Purpose: compare 3D segmentation stacks using the VI criterion
+# as defined in:
+# Marina Meila, "Comparing clusterings.an information based distance"
+# Journal of Multivariate Analysis 98 (2007) 873 - 895
+#
+
 import os, sys, re, h5py
 import json
 import numpy
@@ -34,15 +40,15 @@ if __name__ == "__main__":
     while z < zmax:                
         print "\n...current layer=", z
 
-        input_path1  = os.path.join(ms_temp, "VI_" + label1 + "_" + label2 + "N1_counts_z"  + str(z) + ".json")
+        input_path1  = os.path.join(ms_temp, "VI_" + label1 + "_" + label2 + "_N1_counts_z"  + str(z+1) + ".json")
         with open(input_path1, 'r') as fp:
             N1_z = json.load(fp)
 
-        input_path2  = os.path.join(ms_temp, "VI_" + label1 + "_" + label2 + "N2_counts_z"  + str(z) + ".json")
+        input_path2  = os.path.join(ms_temp, "VI_" + label1 + "_" + label2 + "_N2_counts_z"  + str(z+1) + ".json")
         with open(input_path2, 'r') as fp:
             N2_z = json.load(fp)
 
-        input_path12 = os.path.join(ms_temp, "VI_" + label1 + "_" + label2 + "N12_counts_z"  + str(z) + ".json")
+        input_path12 = os.path.join(ms_temp, "VI_" + label1 + "_" + label2 + "_N12_counts_z"  + str(z+1) + ".json")
         with open(input_path12, 'r') as fp:
             N12_z = json.load(fp)
 
@@ -110,29 +116,33 @@ if __name__ == "__main__":
     I  = 0
 
    
-    print "Computing H1  ..." 
+    print "\nComputing H1  ..." 
     for k in N1.keys():
         if P1[k] > 0:
             H1 += -P1[k]*math.log(P1[k])
         else:
             print "Warning: P1[", k, "]=", P1[k]
+    print "H1=", H1
 
-    print "Computing H2  ..."
+    print "\nComputing H2  ..."
     for k in N2.keys():
         if P2[k] > 0:
             H2 += -P2[k]*math.log(P2[k])
         else:
             print "Warning: P2[", k, "]=", P2[k]
+    print "H2=", H2
 
-    print "Computing I  ..."
+    print "\nComputing I  ..."
     for k1 in N1.keys():
         for k2 in N2.keys():
             k12 = str(k1) + "_" + str(k2)
             try:                   
                 if P1[k1] > 0 and P2[k2] > 0 and P12[k12] > 0:
-                    I += -P12[k12]*math.log(P12[k12]/P1[k1]/P2[k2])
+                    I += P12[k12]*math.log(P12[k12]/P1[k1]/P2[k2])
             except:
                 continue
+    print "I=", I
+
     VI3D = H1 + H2 - 2*I
 
     # Output VI2D to file

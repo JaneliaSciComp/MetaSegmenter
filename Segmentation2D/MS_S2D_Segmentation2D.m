@@ -10,14 +10,14 @@ function [] = MS_S2D_Segmentation2D(inputName,fracBlack,fracBlack2,varargin)
         return
     end
 
-    try
+%   try
         p = MS_S2D_InputParser;              % call constructor
         p.parse(fracBlack,fracBlack2,varargin{:});
         options = MS_S2D_ExtractOptions(p, fracBlack, fracBlack2);
-    catch
-        output_usage_message();
-        return
-    end
+%   catch
+%       output_usage_message();
+%       return
+%   end
 
     fracBlack  = options.fracBlack;
     fracBlack2 = options.fracBlack2;
@@ -34,39 +34,45 @@ function [] = MS_S2D_Segmentation2D(inputName,fracBlack,fracBlack2,varargin)
     if length(size(I)) > 2
         I = squeeze(I(:,:,1));
     end
-    
+   
+    max_I = max(max(I));
+    if max_I > 255
+        I = mat2gray(double(I)/max_I);
+    end
+    disp(['In MS_S2D_Segmentation2D max(I)=' num2str(max(max(I)))]);
+ 
 %   if (options.dispOn || options.dispOn2 || options.debug)
 %       MS_S2D_ShowImage(I(:,:), 'Original image (I)', options);
 %   end
 
     imwrite(I, 'orig_image_MS_S2D_Segmentation2D.png');
 
+
+    
     Ibwf = segment_image(I, fracBlack, fracBlack2, options);
     if options.padding
         Ibwf = MS_S2D_AddBoundaryPadding(Ibwf, 0);
     end
     
      % Optionally output BW file
-    if length(options.outBW) > 0
+    if length(options.outBW) > 0 && length(options.outThr) == 0
         imwrite(Ibwf, options.outBW);
     end
 
-    L = MS_S2D_GenerateLabelsMatrix(Ibwf, options.verbose);
-    
-    if (options.dispOn || options.dispOn2 || options.debug ...
-                       || length(options.outRGB) > 0);          
-        Lrgb = label2rgb(L, 'jet', 'w', 'shuffle');
-        if (options.dispOn || options.dispOn2 || options.debug)
+    if ~options.noDark && (options.RGB || length(options.outSeg) > 0) ...
+        && length(options.outThr) == 0
+        L = MS_S2D_GenerateLabelsMatrix(Ibwf, options.verbose);
+        max_label = max(max(L));
+        disp(' ');
+        disp(['num_regions=' num2str(max_label)]);
+        if options.RGB
+            Lrgb = label2rgb(L, 'jet', 'w', 'shuffle');
             MS_S2D_ShowImage(Lrgb, 'Final segmentation colored labels (Lrgb)', options);
         end
-        if length(options.outRGB) > 0
-            imwrite(Lrgb, options.outRGB);
+        % Optionally output segmentation file 
+        if length(options.outSeg) > 0  
+            imwrite(L, options.outSeg);
         end
-    end
-
-    % Optionally output segmentation file 
-    if length(options.outSeg) > 0  
-        imwrite(L, options.outSeg);
     end
 
 % -------------------------------------------------------------------------------
@@ -80,10 +86,12 @@ function Ibwf = segment_image(I, fracBlack, fracBlack2, options)
             'nx', options.nx, 'ny', options.ny,...
             'dx', options.dx, 'dy', options.dy,...
             'membPr', options.membPr, 'mitoPr', options.mitoPr, ...
+            'mitoMembPr', options.mitoMembPr, 'useMembPr', options.useMembPr, ...
             'thr',    options.thr, 'maxSize', options.maxSize, ...
-            'verbose', options.verbose);
+            'outThr', options.outThr, ...
+            'verbose', options.verbose, 'vesicles', options.vesicles);
         if ~options.noDark
-            Ibwd = MS_S2D_SegmentDarkStructures(I, imcomplement(Ibwn), ...
+            Ibwd = MS_S2D_SegmentDarkStructures(I, ...
                 fracBlack, fracBlack2,...
                 'nx', options.nx, 'ny', options.ny,...
                 'dx', options.dx, 'dy', options.dy,...
@@ -98,23 +106,26 @@ function Ibwf = segment_image(I, fracBlack, fracBlack2, options)
             'nx', options.nx, 'ny', options.ny,...
             'dx', options.dx, 'dy', options.dy,...
             'membPr', options.membPr, 'mitoPr', options.mitoPr, ...
+            'mitoMembPr', options.mitoMembPr, 'useMembPr', options.useMembPr, ...
             'sx', options.sx, 'sy', options.sy,...
             'thr',    options.thr, 'maxSize', options.maxSize, ...
             'verbose', options.verbose,...
-            'dispOn', options.dispOn,...
-            'dispOn2', options.dispOn2,...
+            'dispOn', options.dispOn, 'dispOn2', options.dispOn2,...
+            'RGB', options.RGB, 'outThr', options.outThr, ...
             'closeAll',options.closeAll, ...
-            'hist', options.hist);
+            'hist', options.hist, 'vesicles', options.vesicles);
         if ~options.noDark
-            Ibwd = MS_S2D_SegmentDarkStructures(I, imcomplement(Ibwn), fracBlack, fracBlack2,...
+            Ibwd = MS_S2D_SegmentDarkStructures(I, fracBlack, fracBlack2,...
                 'nx', options.nx, 'ny', options.ny,...
                 'dx', options.dx, 'dy', options.dy,...
                 'membPr', options.membPr, 'mitoPr', options.mitoPr, ...
+                'mitoMembPr', options.mitoMembPr, ...
                 'sx', options.sx, 'sy', options.sy,...
                 'thr',   options.thr2, 'maxSize', options.maxSize, ...
                 'verbose', options.verbose,...
                 'dispOn', options.dispOn,...
                 'dispOn2', options.dispOn2,...
+                'RGB', options.RGB, ...
                 'closeAll',options.closeAll, ...
                 'hist', options.hist);
         else
@@ -130,6 +141,7 @@ function Ibwf = segment_image(I, fracBlack, fracBlack2, options)
             Ibwd = MS_S2D_AddBoundaryPadding(Ibwd, 0);
         end
     end
+
     if options.debug
         MS_S2D_ShowImage(Ibwn, 'Initially detectred neural cells (Ibwn)', options);
         if ~options.noDark
@@ -142,7 +154,10 @@ function Ibwf = segment_image(I, fracBlack, fracBlack2, options)
         Ibwf = Ibwn;
         clear Ibwn;
         if ~options.noDark
-            Ibwf (Ibwd > 0) = 1;                           
+            Ibwd_int = imerode(Ibwd, strel('disk', 2));
+            Ibwd_bound = Ibwd - Ibwd_int;
+            Ibwf(Ibwd_int   > 0) = 1; % interior part of dark structures
+            Ibwf(Ibwd_bound > 0) = 0; % boundary of dark structures 
         end
         Ibwf = bwareaopen(Ibwf,100);
     else
@@ -153,6 +168,7 @@ function Ibwf = segment_image(I, fracBlack, fracBlack2, options)
 
             % Identify the dark strutures each of which is entirely contained 
             % within a single neural cell region.   
+            disp(['Step 1: dark strutures entirely contained within a single neural cell ...']);
             Ibwnd = imdilate(Ibwn, strel('disk', 1));
             Ibwn1 = (Ibwnd | Ibwd) - Ibwd;       
             % What we are looking for, should be holes in the remaing BW components
@@ -164,6 +180,7 @@ function Ibwf = segment_image(I, fracBlack, fracBlack2, options)
 
             % Identify the dark strutures each of which is ALMOST entirely contained
             % within a single neural cell region.
+            disp(['Step 2: dark strutures  ALMOST entirely contained...']);
             Ibwde  = imerode(Ibwd - Ibwd11, strel('disk', 1));
             Ibwn1 = (Ibwnd | Ibwde) - Ibwde;
             Ibwn2 = imfill(Ibwn1, 'holes');
@@ -255,9 +272,13 @@ function output_usage_message()
     disp('    dx, dy       - # pixels of fragment overlap (default = 50)');
     disp('    sx, sy       - ids of the particular section to be processed/shown (defaults=1)');
     disp('    maxSize      - maximum allowed size of image subsection to be processed (default=Inf)');
+    disp('    membPr       - path to HDF5 file containing membrane probabilities');
+    disp('    mitoPr       - path to HDF5 file containing mitochondria probabilities');
+    disp('    mitoMembPr   - path to HDF5 file containing mitochondrial membrane probabilities');
+    disp('    useMembPr    - whether or not to use membrane probabilities instead of original signals');
     disp('    outBW        - name of output black/white image file (default='', no output)');
     disp('    outSeg       - name of output segmentation file (default='', no output)');
-    disp('    outRGB       - name of output colored labels file (default='', no output)');
+    disp('    RGB          - whether or not to show colored labels (default = no)');
     disp('    verbose      - weather or not to increase verbosity of output (default=0)');
     return;
 

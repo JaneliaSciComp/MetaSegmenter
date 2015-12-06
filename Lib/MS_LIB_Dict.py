@@ -8,6 +8,25 @@ ms_data = os.environ['MS_DATA'] # dir for intermediate data files
 
 # -----------------------------------------------------------------------
 
+# Given node id, determine z-layer id
+
+def map_node_to_z(num_layers, options):
+    z_min   = max(0,          int(options.zmin))
+    z_max   = min(num_layers, int(options.zmax))
+    if options.verbose:
+        print "\noptions.zmin=", options.zmin, " options.zmax=", options.zmax
+   
+    dict_node_z = {}
+    node = 1
+
+    for z in range(z_min, z_max):
+        dict_node_z[node] = z
+        node += 1
+
+    return (node, dict_node_z)
+
+# -----------------------------------------------------------------------
+
 # Given node id, determine z-layer id, ymin, ymax, xmin and xmax
 
 def map_node_to_xyz(input_dim, input_label, output_suffix, options):
@@ -26,11 +45,11 @@ def map_node_to_xyz(input_dim, input_label, output_suffix, options):
     if options.verbose:
         print "\ny_size=", y_size, " x_size=", x_size
     if y_size <= 2*int(options.dy):
-        print "y overlap ", options.dy, " exceeds half of y_size ", y_size
-        sys.exit()
+        print "Warning: y overlap ", options.dy, " exceeds half of y_size ", y_size
+#       sys.exit()
     if x_size <= 2*int(options.dx):
-        print "x overlap ", options.dx, " exceeds half of x_size ", x_size
-        sys.exit()
+        print "Warning: x overlap ", options.dx, " exceeds half of x_size ", x_size
+#       sys.exit()
     dict_node_xyz = {}
     node = 0
     for y in y_range:

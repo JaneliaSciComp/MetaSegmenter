@@ -36,12 +36,7 @@ function Ibwd = MS_S2D_SegmentDarkStructures(inputName,fracBlack,fracBlack2,vara
         MS_S2D_ShowImage(I, 'Original image (I)', options);
     end
 
-    if options.dispOn
-        MS_S2D_ShowImage(I, 'After subr=traction of membranes (I)', options);
-    end
-
     im_size = size(I);
-    Ibwd = zeros(im_size(1),im_size(2));
     subsections = MS_S2D_DivideImageIntoSubsections(im_size, options);
     Igr = mat2gray(I);
     clear I;
@@ -56,7 +51,7 @@ function Ibwd = MS_S2D_SegmentDarkStructures(inputName,fracBlack,fracBlack2,vara
 
     % Display/outpu labels
     if (options.dispOn || options.dispOn2 || length(options.outSeg) > 0 ...
-                       || length(options.outRGB) > 0)
+                       || options.RGB)
         % Label components in the inverse BW image
         L = MS_S2D_GenerateLabelsMatrix(Ibwd, options.verbose);
         if length(options.outSeg) > 0
@@ -64,12 +59,9 @@ function Ibwd = MS_S2D_SegmentDarkStructures(inputName,fracBlack,fracBlack2,vara
         end
 
         % Color components
-        if options.dispOn2 || options.outRGB
+        if options.dispOn2 || options.RGB
             Lrgb = label2rgb(L, 'jet', 'w', 'shuffle');
             MS_S2D_ShowImage(Lrgb, 'Colored labels of dark structures (Lrgb)', options);
-            if length(options.outRGB) > 0
-                imwrite(Lrgb, options.outRGB);
-            end
         end
     end
 
@@ -83,6 +75,7 @@ function Ibwd = segment_dark_structures(Igr, M_thr, M_thr2, options)
     % NOTE2: edges are computed incorrectly by Matlab's imhist function,
     %        so a custom function has been implemented for compuring the edges
 
+    Ibwd = [];
     if length(options.mitoPr) > 0
         % Use probabilities to detect dartk structures
         norm_mitoPr = normalize_probabilities(MS_S2D_ReadProbabilities(options.mitoPr));
@@ -108,10 +101,10 @@ function Ibwd = segment_dark_structures(Igr, M_thr, M_thr2, options)
         if options.dispOn | options.dispOn2
             MS_S2D_ShowImage(Igrbw, 'Thresholded mitoProb ', options);
         end
-        Igrbw = imdilate(Igrbw, strel('disk', 8));
-        Igrbw = imerode(Igrbw, strel('disk', 8));
+        Igrbw = imdilate(Igrbw,strel('disk', 8));
         Igrbw  = imfill(Igrbw, 'holes');
-        Igrbw = bwareaopen(Igrbw,round(200));
+        Igrbw = imerode(Igrbw, strel('disk', 12));
+        Igrbw = bwareaopen(Igrbw,round(400));
         if options.dispOn | options.dispOn2
             MS_S2D_ShowImage(Igrbw, 'After dilation/erosion ', options);
         end
@@ -195,7 +188,7 @@ function output_usage_message()
     disp('    resize       - scale to be used when resizing BW image (default = 1)');
     disp('    outBW        - name of output black/white image file (default='', no output)');
     disp('    outSeg       - name of output segmentation file (default='', no output)');
-    disp('    outRGB       - name of output colored labels file (default='', no output)');
+    disp('    RGB          - whether or not to show colored labels (default = no)');                  
     disp('    verbose      - weather or not to increase verbosity of output (default=0)');
     return;
 

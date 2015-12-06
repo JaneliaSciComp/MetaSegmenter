@@ -163,6 +163,10 @@ def create_data_extraction_and_segmentation_job(outfolderpath, \
     if options.verbose:
         command_extr_data += " -v "
         command_segm_data += " -v "
+    if options.output_thresholds:
+        command_segm_data += " -T "
+    if options.use_memb_probs:
+        command_segm_data += " -u "
     command_extr_data += "\n"
     command_segm_data += "\n"
     scr.write(command_extr_data)
@@ -254,6 +258,7 @@ def submit_segmentation_job(segm_script_path, base_command, options):
         jobid1 = (res[1].split()[2]).split(".")[0]
     elif not options.submission_command == "none":
         os.system(command)
+        res = ''
     if options.verbose and not options.submission_command == "none":
         print "Submit segmentation job command=", command, "\nres=", res, "\n"
     return jobid1            
@@ -268,7 +273,6 @@ def submit_xmerge_job(xmerge_script_path, base_command, jobid1, options):
                                  " -o /dev/null -e /dev/null "
     else:
         command = base_command + " -V -N " + prog_name
-    command = command + " -l matlab=true "
     if re.search("qsub", options.submission_command):
         if int(jobid1) > 0:
             command += " -hold_jid " + str(jobid1)
@@ -293,10 +297,11 @@ def submit_ymerge_job(ymerge_script_path, base_command, jobid2, options):
                                  " -o /dev/null -e /dev/null "
     else:
         command = base_command + " -V -N " + prog_name
-    command = command + " -l matlab=true "
     if re.search("qsub", options.submission_command):
         if int(jobid2) > 0:
             command += " -hold_jid " + str(jobid2)
+        if options.num_slots > 1:
+            command += " -pe batch " + str(options.num_slots)
         command += " " + ymerge_script_path
         if options.verbose:
             print "Submitting ymerge command=", command
@@ -305,6 +310,7 @@ def submit_ymerge_job(ymerge_script_path, base_command, jobid2, options):
     elif not options.submission_command == "none":
         command += " " + ymerge_script_path
         os.system(command)
+        res3 = ''
     if options.verbose and not options.submission_command == "none":
         print "\nSubmit y-merge job command=", command, " res3=", res3, "\n"
         print "jobid3=", jobid3
@@ -319,7 +325,6 @@ def submit_epilog_job(epilog_script_path, base_command, jobid3, options):
         command += " -o /dev/null -e /dev/null "
     if int(jobid3) > 0:
         command += " -hold_jid " + str(jobid3)
-    command = command + " -l matlab=true "
     command += " " +  epilog_script_path
     if not options.submission_command == "none":
         os.system(command)
@@ -411,6 +416,25 @@ def process_input_data_high_level(input_data, input_type, input_dim, \
 
 # -----------------------------------------------------------------------------
 
+def get_iput_path_list(input_data, options):
+    # Create a list of files
+    files = []
+    i = 0
+    dir_path = os.path.join(ms_data,input_data)
+    files_list = sorted(os.listdir(dir_path))
+    print "\ninput_data=", input_data
+    print "files_list=", files_list
+    files = []
+    for i in range(0, len(files_list)):
+        file = files_list[i]
+        file_path = os.path.join(dir_path, file)
+        if i in range(int(options.zmin), int(options.zmax)):
+            files.append(os.path.join(input_data, file_path))
+        i = i+1
+    return files
+
+# -----------------------------------------------------------------------------
+
 # Process individual fragment segmentation job                 
 def process_input_data_low_level(dict_node_xyz, input_label,options):
     outfolderpath = ms_temp     
@@ -429,69 +453,83 @@ def process_input_data_low_level(dict_node_xyz, input_label,options):
               "xmin=", xmin, " xmax=", xmax, \
               "z=", z
     if   int(options.nx) > 1 and int(options.ny) > 1:
-        input_file = os.path.join(ms_temp, input_label + "_y" + str(y+1) +\
+        input_path = os.path.join(ms_temp, input_label + "_y" + str(y+1) +\
                                   "_x" + str(x+1) + "_z" + str(z+1) + ".png")
-        output_file = os.path.join(ms_temp, input_label + "_y" + str(y+1) +\
+        output_path = os.path.join(ms_temp, input_label + "_y" + str(y+1) +\
                                   "_x" + str(x+1) + "_z" + str(z+1) + "_BW.png")
     elif int(options.nx) == 1 and int(options.ny) > 1:
-        input_file = os.path.join(ms_temp, input_label + "_y" + str(y+1) +\
+        input_path = os.path.join(ms_temp, input_label + "_y" + str(y+1) +\
                                                     "_z" + str(z+1) + ".png")
-        output_file = os.path.join(ms_temp, input_label + "_y" + str(y+1) +\
+        output_path = os.path.join(ms_temp, input_label + "_y" + str(y+1) +\
                                                     "_z" + str(z+1) + "_BW.png")
     elif int(options.nx) > 1 and int(options.ny) == 1:
-        input_file = os.path.join(ms_temp, input_label +                  \
+        input_path = os.path.join(ms_temp, input_label +                  \
                                   "_x" + str(x+1) + "_z" + str(z+1) + ".png")
-        output_file = os.path.join(ms_temp, input_label +                  \
+        output_path = os.path.join(ms_temp, input_label +                  \
                                   "_x" + str(x+1) + "_z" + str(z+1) + "_BW.png")
     else:
-        input_file = os.path.join(ms_temp, input_label +                  \
+        input_path = os.path.join(ms_temp, input_label +                  \
                                                     "_z" + str(z+1) + ".png")
-        output_file = os.path.join(ms_temp, input_label +                  \
+        output_path = os.path.join(ms_temp, input_label +                  \
                                                     "_z" + str(z+1) + "_BW.png")
+    if options.output_thresholds:
+        if  input_type == "directory":
+            file_paths = get_iput_path_list(input_data, options)
+            print "z=", z, " file_paths[z]=",  file_paths[z]
+            input_path = file_paths[z]
+        input_file = os.path.basename(input_path)
+        input_file_suffix = "." + input_file.split(".")[len(input_file.split("."))-1]
+        output_file = input_file.replace(input_file_suffix, ".thr")
+        output_path = os.path.join(ms_data, output_file)
+
     if options.verbose:
-        print "input_file=", input_file, "\noutput_file=", output_file
+        print "input_path=", input_path, "\noutput_path=", output_path
 
     if len(options.memb_prob) > 0:
-        input_memb_prob_file = os.path.join(ms_temp, input_label +          \
+        input_memb_prob_path = os.path.join(ms_temp, input_label +          \
                                             "_z" + str(z+1) + "_memb_prob.h5")
         if options.verbose:
-            print "memb_prob_file =", input_memb_prob_file   
+            print "memb_prob_path =", input_memb_prob_path   
 
     if len(options.mito_prob) > 0:
-        input_mito_prob_file = os.path.join(ms_temp, input_label +          \
+        input_mito_prob_path = os.path.join(ms_temp, input_label +          \
                                             "_z" + str(z+1) + "_mito_prob.h5")
         if options.verbose:
-            print "mito_prob_file =", input_mito_prob_file
-        
+            print "mito_prob_path =", input_mito_prob_path
+      
     my_fracBlack = str(options.fracBlack)
     if my_fracBlack == "None":
         my_fracBlack = "0"
     my_fracBlack2 = str(options.fracBlack2)
     if my_fracBlack2 == "None":
         my_fracBlack2 = "0"
-    command_segm = executable_path + " " + input_file + " " + \
+    command_segm = executable_path + " " + input_path + " " + \
                    my_fracBlack    + " " + my_fracBlack2 + " " +\
                    " verbose "     + str(int(options.verbose)) + " " + \
                    " ny      "     + options.nlen              + " " + \
                    " nx      "     + options.nwid              + " " + \
-                   " outBW   "     + output_file               + " " + \
+                   " outBW   "     + output_path               + " " + \
                    " resize  "     + str(options.resize_scale)
     if int(options.no_dark) > 0:
         command_segm += " noDark  1 "
     if len(options.memb_prob) > 0:
-        command_segm += " membPr " + input_memb_prob_file
+        command_segm += " membPr " + input_memb_prob_path
     if len(options.mito_prob) > 0:
-        command_segm += " mitoPr " + input_mito_prob_file
+        command_segm += " mitoPr " + input_mito_prob_path
+    if options.output_thresholds:
+        command_segm += " outThr " + output_path
+    if options.use_memb_probs:
+        command_segm += " useMembPr 1 "
 
-    command_rm   = "rm -f " + input_file
+    command_rm   = "rm -f " + input_path
     if int(options.msize) < sys.maxint:             
         command_segm +=  ' maxSize '    + options.msize   
     if options.verbose:
-        print "Input data file=", input_file
-        data_shape = misc.imread(input_file).shape
+        print "Input data file=", input_path
+        data_shape = misc.imread(input_path).shape
         print "Input data shape=", data_shape
         print "low level command_segm=", command_segm
-        print "Writing segmented image to file", output_file 
+        print "Writing segmented image to file", output_path 
     os.system(command_segm)
     if not options.debug:
         os.system(command_rm)
@@ -529,6 +567,11 @@ if __name__ == "__main__":
         input_dim = MS_LIB_IO.get_data_dimensions(input_data, input_type, options)
         if options.verbose:
             print "Input data dimensions: ", input_dim
+        if options.output_thresholds:
+            options.ny = 1
+            options.nx = 1
+            options.dy = 0
+            options.dx = 0
         num_nodes, dict_node_xyz = \
             MS_LIB_Dict.map_node_to_xyz(input_dim, input_label, "_BW.png", options)
         if options.verbose:

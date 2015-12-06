@@ -30,8 +30,10 @@ def Segmentation2D_command_line_parser(parser):
     parser.add_option("-p", "--processing_start",dest="processing_start",help="start processing from segm(=1),xmerg(=2),ymerg(=3),or epilog(=4) ",metavar="processing_start",default=1)
     parser.add_option("-P", "--processing_end",dest="processing_end",help="complete processing at step segm(=1),xmerg(=2),ymerg(=3),or epilog(=4) ",metavar="processing_end",default=4)
     parser.add_option("-r", "--resize",dest="resize_scale", help="scale for resizing BW image", metavar="resize_scale", default=1)
-    parser.add_option("-s", "--sub",dest="submission_command", help="source, qsub or qsub_debug", metavar="submission_command", default="qsub")
-    parser.add_option("-S", "--slots",dest="num_slots", help="# of cluster slots per 1 job (default=1)", metavar="num_slots", default=2)
+    parser.add_option("-s", "--sub",dest="submission_command",help="source,qsub or qsub_*",metavar="submission_command",default="qsub")
+    parser.add_option("-S", "--slots",dest="num_slots",help="# of cluster slots per 1 job (default=1)", metavar="num_slots", default=2)
+    parser.add_option("-T", "--out_thr",action="store_true", dest="output_thresholds",help="whether or not to output intensity thresholds",metavar="output_thresholds",default=False)
+    parser.add_option("-u", "--use_memb_probs",action="store_true", dest="use_memb_probs",help="whether or not to use membrane probs instead of grayscale signals",metavar="use_memb_probs",default=False)
     parser.add_option("-U", "--unprocessed",action="store_true",dest="unprocessed", help="reprocess only the data for which an output file does not exist",default=False)
     parser.add_option("-v", "--verbose",action="store_true",dest="verbose",help="increase the verbosity level of output",default=False)
     parser.add_option("-w", "--nwid",   dest="nwid", help="# of subsections for adaptive thresholding in x (width) direction", metavar="nwid",  default="1")
@@ -94,8 +96,11 @@ def MergeImageFragments_command_line_parser(parser):
 def Fusion3D_command_line_parser(parser):
     parser.add_option("-A", "--project",dest="project_code",help="code to be used with qsub",metavar="project_code", default="flyTEM")
     parser.add_option("-a", "--overlap_area",dest="overlap_area",help="min ovrp.area,def=200",metavar="overlap_area",default="200")
+    parser.add_option("-C", "--critical_slope", dest="critical_slope", help="critical_slope", metavar="critical_slope",default=0.0001)
     parser.add_option("-D", "--debug",dest="debug",help="don't delete intermediate outputs", action="store_true", default=False)
     parser.add_option("-f", "--overlap_fraction",dest="overlap_fraction",help="min ovrp.frac",metavar="overlap_fraction",default="0.3")
+    parser.add_option("-F", "--layer_factor",dest="layer_factor",help="factor used in the integer optimization constraints",\
+                            metavar="layer_factor",default="1.2")
     parser.add_option("-i","--uint_type",dest="uint",help="8,16,32 or 64",metavar="uint",default="64")
     parser.add_option("-l", "--nlen",   dest="nlen", help="# of subsections for processing a fragment in y (length) direction",metavar="nlen", default="1")
     parser.add_option("-m", "--maxsize",dest="msize", help="# of subsections for processing a fragment in y (length) direction",metavar="nlen",default=sys.maxint)
@@ -104,7 +109,7 @@ def Fusion3D_command_line_parser(parser):
     parser.add_option("-p", "--processing_step_beg",dest="processing_step_beg",help="start processing from matr(1), merge(2), trav(3), relab(4) or epil(5)",metavar="processing_step_beg",default=1)
     parser.add_option("-P", "--processing_step_end",dest="processing_step_end",help="end processing with matr(1), merge(2), trav(3), relab(4) or epil(5)",metavar="processing_step_end",default=5)
     parser.add_option("-s", "--sub",dest="submission_command", help="source, qsub or qsub_debug", metavar="submission_command", default="qsub")
-    parser.add_option("-S", "--slots",dest="num_slots", help="# of cluster slots per 1 job (default=1)", metavar="num_slots", default=4)
+    parser.add_option("-S", "--slots",dest="num_slots", help="# of cluster slots per 1 job (default=1)", metavar="num_slots", default=2)
     parser.add_option("-U", "--unprocessed",action="store_true",dest="unprocessed", help="reprocess only the data for which an output file does not exist",default=False)
     parser.add_option("-v", "--verbose",action="store_true",dest="verbose",help="increase the verbosity level of output",default=False)
     parser.add_option("-w", "--nwid",   dest="nwid", help="# of subsections for processing a fragment in x (width) direction", metavar="nwid",  default="1")
@@ -120,10 +125,12 @@ def Fusion3D_command_line_parser(parser):
 # -----------------------------------------------------------------------
 
 def GenerateMatrices_command_line_parser(parser):
+    parser.add_option("-C", "--critical_slope", dest="critical_slope", help="critical_slope", metavar="critical_slope",default=0.0001)
     parser.add_option("-d", "--dataset", dest="dataset", help="dataset in DVID store",default='test1')
     parser.add_option("-D", "--debug",dest="debug", help="debugging; don't delete shell scripts", action="store_true", default=False)
     parser.add_option("-i", "--uuid",dest="uuid",help="uuid for DVID store",default='fe7')
     parser.add_option("-L", "--length", dest="ydim", help="y-size (length) of an image", metavar="ydim", default="")
+    parser.add_option("-l", "--dist_layers", dest="dist_layers", help="ratio of physical distance between layers to pixel size", metavar="dist_layers", default=10)
     parser.add_option("-H", "--height", dest="zdim", help="z-size (height, or # layers) of an image stack", metavar="zdim", default="")
     parser.add_option("-n", "--node",   dest="node", help="id of the cluster node to be used", metavar="node",  default=0)
     parser.add_option("-o", "--output_path",dest="output_path",help="output path",metavar="output_path",default="")
@@ -144,7 +151,10 @@ def GenerateMatrices_command_line_parser(parser):
 def MergeMatrices_command_line_parser(parser):
     parser.add_option("-a", "--overlap_area",dest="overlap_area",help="min overlap_area",metavar="overlap_area",default="200")
     parser.add_option("-D", "--debug",dest="debug", help="debugging; don't delete shell scripts", action="store_true", default=False)
-    parser.add_option("-f", "--overlap_fraction",dest="overlap_fraction",help="min overlap_fraction",metavar="min overlap_fraction",default="0.3")
+    parser.add_option("-f", "--overlap_fraction",dest="overlap_fraction",help="min overlap_fraction",\
+                            metavar="min overlap_fraction",default="0.3")
+    parser.add_option("-F", "--layer_factor",dest="layer_factor",help="factor used in the integer optimization constraints",\
+                            metavar="layer_factor",default="1.2")
     parser.add_option("-n", "--node",   dest="node", help="id of the cluster node to be used", metavar="node",  default=0)
     parser.add_option("-o", "--output_path",dest="output_path",help="output path",metavar="output_path",default="")
     parser.add_option("-v", "--verbose",action="store_true",dest="verbose",help="increase the verbosity level of output",default=False)

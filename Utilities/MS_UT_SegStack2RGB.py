@@ -7,6 +7,7 @@ import os, sys, re, h5py
 import tifffile as tiff
 import numpy as np
 from skimage.color import label2rgb
+from skimage import filters
 from PIL import Image
 
 def read_input(stack_file_name, layer_id):
@@ -40,6 +41,12 @@ if __name__ == "__main__":
     max_value = data.max()
     min_value = data.min()
     print "data.max=", max_value, " data.min=", min_value 
+
+    labels = np.unique(data)
+    # If label 0 is missing, detect edges of components and set their label to 0
+    if not 0 in labels:
+        edges = filters.sobel(data) # detect e
+        data[edges > 0] = 0
 
     if round(max_value) == max_value and round(min_value) == min_value and max_value - min_value > 1:
         num_values = 0

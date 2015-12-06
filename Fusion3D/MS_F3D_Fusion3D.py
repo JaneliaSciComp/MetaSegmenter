@@ -164,7 +164,7 @@ def create_generate_matrices_job(outfolderpath, \
         " -Y " + str(options.ny)   + " -y " + str(options.dy) + \
         " -z " + str(zmin)         + " -Z " + str(zmax) +\
         " -L " + str(input_dim[0]) + " -W " + str(input_dim[1]) +\
-        " -H " + str(input_dim[2])
+        " -H " + str(input_dim[2]) + " -C " + str(options.critical_slope)
     if options.verbose:
         command_matrices += " -v "
     if options.debug:
@@ -209,7 +209,8 @@ def create_merge_job(outfolderpath, input_data, input_type,\
                       + " -z " + str(zmin)        \
                       + " -Z " + str(zmax)        \
                       + " -a " + str(options.overlap_area) \
-                      + " -f " + str(options.overlap_fraction)
+                      + " -f " + str(options.overlap_fraction)\
+                      + " -F " + str(options.layer_factor)
     if options.verbose:
         command_merge += " -v "
     if options.debug:

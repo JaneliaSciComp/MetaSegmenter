@@ -21,12 +21,15 @@ classdef MS_S2D_InputParser < inputParser
         defaultMaxSize      = Inf; 
         defaultOutBW        = ''; % name for output black/white image file
         defaultOutSeg       = ''; % name for output segmentation file
-        defaultOutRGB       = ''; % name for output colored labels file
+        defaultOutThr       = ''; % name for output intensity thresholds file
+        defaultRGB          = 0;  % show RGB labels                       
         defaultHistogram    = 0;
         defaultScale        = 1;
         defaultMembProb     = ''; % path to the membranes probability file
         defaultMitoProb     = ''; % path to the mitochondria probability file
         defaultMitoMembProb = ''; % path to the mitochondria probability file
+        defaultUseMembPr    = 0;  % use membrane probabilities instead of grayscale signals
+        defaultVesicles     = 0;
     end
 
     methods
@@ -91,9 +94,12 @@ classdef MS_S2D_InputParser < inputParser
             obj.addParamValue('resize',    obj.defaultScale);  
             obj.addParamValue('outBW',     obj.defaultOutBW')
             obj.addParamValue('outSeg',    obj.defaultOutSeg);
-            obj.addParamValue('outRGB',    obj.defaultOutRGB);
-            obj.addParamValue('membPr'    ,obj.defaultMembProb);
-            obj.addParamValue('mitoPr'    ,obj.defaultMitoProb);
+            obj.addParamValue('outThr',    obj.defaultOutThr);
+            obj.addParamValue('RGB',       obj.defaultRGB);
+            obj.addParamValue('useMembPr', obj.defaultUseMembPr);
+            obj.addParamValue('vesicles',  obj.defaultVesicles);
+            obj.addParamValue('membPr',    obj.defaultMembProb);
+            obj.addParamValue('mitoPr',    obj.defaultMitoProb);
             obj.addParamValue('mitoMembPr',obj.defaultMitoMembProb);
             obj.KeepUnmatched = true;
             parse@inputParser(obj, fracBlack, fracBlack2, varargin{:});

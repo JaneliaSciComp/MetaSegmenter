@@ -90,9 +90,9 @@ def initialize_labels_and_generate_maps(input_label, options):
                     umap[k+1][c] = []    
                 if r > 0 and c > 0:
                     umap[k+1][c].append(r)
-            if options.debug:
-                print "z=", z, "; dmap[k  ].keys()=", sorted(dmap[k  ].keys())
-                print "z=", z, "; umap[k+1].keys()=", sorted(umap[k+1].keys()), "\n"
+#           if options.debug:
+#               print "z=", z, "; dmap[k  ].keys()=", sorted(dmap[k  ].keys())
+#               print "z=", z, "; umap[k+1].keys()=", sorted(umap[k+1].keys()), "\n"
         else:
             # Process the last layer
             dmap.append({})

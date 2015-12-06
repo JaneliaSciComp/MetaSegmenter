@@ -100,7 +100,7 @@ def check_sums(i, j, unified_fmatrix):
 
 # -----------------------------------------------------------------------
 
-def produce_unified_omatrix(input_data, input_type, options):  
+def produce_unified_oamatrices(input_data, input_type, options):  
 
     input_label    = "ms3_DVID"
     if input_type == "directory":
@@ -136,7 +136,17 @@ def produce_unified_omatrix(input_data, input_type, options):
     unified_omatrix = numpy.zeros((len(labels1)+1,len(labels2)+1), dtype="int")
     print "unified_omatrix.shape=", unified_omatrix.shape
     unified_omatrix[0][1:] = labels2
-    unified_omatrix[1:,0] = labels1
+    unified_omatrix[1:,0]  = labels1
+
+    # Area1 matrix
+    unified_a1matrix = numpy.zeros((len(labels1)+1,len(labels2)+1), dtype="int")
+    unified_a1matrix[0][1:] = labels2
+    unified_a1matrix[1:,0]  = labels1
+
+    # Area2 matrix
+    unified_a2matrix = numpy.zeros((len(labels1)+1,len(labels2)+1), dtype="int")
+    unified_a2matrix[0][1:] = labels2
+    unified_a2matrix[1:,0]  = labels1
 
     output_opath = os.path.join(ms_temp, input_label + "_overlap" +\
                                 "_z" + str(z+1) + ".txt")
@@ -145,42 +155,53 @@ def produce_unified_omatrix(input_data, input_type, options):
             input_opath = os.path.join(ms_temp, input_label + "_overlap" +\
                                        "_y" + str(y+1) +\
                                        "_x" + str(x+1) + "_z" + str(z+1) + ".txt")
-            input_apath = os.path.join(ms_temp, input_label + "_maxarea" +\
+            input_apath = os.path.join(ms_temp, input_label + "_area" +\
                                        "_y" + str(y+1) +\
                                        "_x" + str(x+1) + "_z" + str(z+1) + ".txt")
-            try:    # inout matrix may be missing due to junk data
-                if options.verbose:
-                    print "input_opath=", input_opath
-                omatrix = numpy.uint32(numpy.loadtxt(input_opath, delimiter='\t'))
-                amatrix = numpy.uint32(numpy.loadtxt(input_apath, delimiter='\t'))
-                if options.verbose:
-                    print "\ninput_opath=", input_opath
-                    print "    omatrix.shape=", omatrix.shape  
-#                   print "    omatrix=", omatrix
-                for k in range(1, omatrix.shape[0]):
-                    li = int(omatrix[k][0]) # label of upper layer
-                    lj = int(omatrix[k][1]) # label of lower layer
-                    if options.debug:
-                        print "   k=", k, " li=", li, " lj=", lj
-                    overlap = omatrix[k][2]
-                    maxarea = amatrix[k][2]
-                    if options.debug:
-                        print "   overlap=", overlap, " maxarea=", maxarea
-                    i = list(labels1).index(int(li)) + 1 # row of a unified_omatrix which corresponds to li          
-                    j = list(labels2).index(int(lj)) + 1 # row of a unified_omatrix which corresponds to lj          
-                    if options.debug:
-                        print "   i=", i, " j=", j
-                    if overlap > max(unified_omatrix[i][j], int(options.overlap_area)) and \
-                       overlap > max(unified_omatrix[i][j], float(options.overlap_fraction)*maxarea):
-                       unified_omatrix[i][j] = overlap          
-            except:
-                print "Warning: y=", y, " x=", x, " k=", k,\
-                      " skipped processing of the missing input matrix:", input_opath
-    return unified_omatrix 
+#           try:    # inout matrix may be missing due to junk data
+            if options.verbose:
+                print "input_opath=", input_opath, " input_apath=", input_apath
+            omatrix = numpy.uint32(numpy.loadtxt(input_opath, delimiter='\t'))
+            amatrix = numpy.uint32(numpy.loadtxt(input_apath, delimiter='\t'))
+            if options.verbose:
+                print "    omatrix.shape=", omatrix.shape, " amatrix.shape=", amatrix.shape  
+            for k in range(1, omatrix.shape[0]):
+                li = int(omatrix[k][0]) # label of upper layer
+                lj = int(omatrix[k][1]) # label of lower layer
+                if options.debug:
+                    print "   k=", k, " li=", li, " lj=", lj
+                overlap = omatrix[k][2]
+                area1   = amatrix[k][2]
+                area2   = amatrix[k][3]
+                if options.debug:
+                    print "   overlap=", overlap, " area_1,2=", area1, area2
+                i = list(labels1).index(int(li)) + 1 # row of a unified_omatrix which corresponds to li          
+                j = list(labels2).index(int(lj)) + 1 # row of a unified_omatrix which corresponds to lj          
+
+                if options.debug:
+                       print "   i=", i, " j=", j, " added overlap=", overlap
+
+                if overlap > max(unified_omatrix[i][j], int(options.overlap_area)) and \
+                   overlap > max(unified_omatrix[i][j], float(options.overlap_fraction)*max(area1, area2)):
+                   unified_omatrix[i][j] = overlap         
+                   if options.debug:
+                       print "   i=", i, " j=", j, " added overlap=", overlap 
+
+                if unified_a1matrix[i][j] < area1:
+                   unified_a1matrix[i][j] = area1
+
+                if unified_a2matrix[i][j] < area2:
+                   unified_a2matrix[i][j] = area2
+
+#           except:
+#               print "Warning: y=", y, " x=", x, \
+#                     " skipped processing of the missing input matrix:", input_opath, \
+#                     " ", input_apath
+    return unified_omatrix, unified_a1matrix, unified_a2matrix 
 
 # -----------------------------------------------------------------------
 
-def generate_fusion_matrix(overlap_matrix, options):
+def generate_fusion_matrix(overlap_matrix, a1_matrix, a2_matrix, options):
     solver = scip.solver()# quiet=False)
     matrix_shape = overlap_matrix.shape
     fusion_matrix = numpy.zeros(matrix_shape, dtype = numpy.uint32)
@@ -195,18 +216,23 @@ def generate_fusion_matrix(overlap_matrix, options):
     # of an overlap matrix
     dict_map = {}
     variables = []
+    area1 = []
+    area2 = []
     k = 0
     for i in range(1, matrix_shape[0]):
         for j in range(1, matrix_shape[1]):
             if overlap_matrix[i][j] > 0:
                 variables.append(solver.variable(scip.BINARY))
+                area1.append(a1_matrix[i][j])
+                area2.append(a2_matrix[i][j])
                 dict_map[k] = [i, j]
                 k = k + 1
 
     # Define SCIP constraints
     # For higher efficiency, consider only those elements of Fusion matrix
     # which correspond to nonzero elements of an overlap matrix
-    # 1) sum of elements of fusion_matrix in each row is <= 2
+
+    # 1) sum of elements of a fusion_matrix in each row is <= 2
     for r in range(1, matrix_shape[0]):
         nz_linear_inds = []
         for c in range(1, matrix_shape[1]):
@@ -220,7 +246,7 @@ def generate_fusion_matrix(overlap_matrix, options):
             if options.verbose and options.debug:
                 print "r=", r, " nz_linear_inds=", nz_linear_inds
 
-    # 2) sum of elements of fusion_matrix in each column is <= 2
+    # 2) sum of elements of a fusion_matrix in each column is <= 2
     for c in range(1, matrix_shape[1]):
         nz_linear_inds = []
         for r in range(1, matrix_shape[0]):
@@ -234,6 +260,43 @@ def generate_fusion_matrix(overlap_matrix, options):
             if options.verbose and options.debug:
                 print "c=", c, " nz_linear_inds=", nz_linear_inds
 
+#   # 3) for each row, A1 <=    layer_factor  * (sum over cols) fusion * A2  
+#   #             and  A1 >= (1/layer_factor) * (sum over cols) fusion * A2            
+    lf = float(options.layer_factor)
+    for r in range(1, matrix_shape[0]):
+        nz_linear_inds = []
+        for c in range(1, matrix_shape[1]):
+            if overlap_matrix[r][c] == 0:
+                continue
+            for key, value in dict_map.iteritems():
+                if [r, c] == value:
+                    nz_linear_inds.append(key)
+        print "row=", r, " a1_matrix[r]=", a1_matrix[r]
+        if len(nz_linear_inds) > 0:
+            a1 = float(max(a1_matrix[r][1:]))
+            solver.constraint( sum(variables[k]*area2[k] for k in nz_linear_inds) <= a1*lf)
+            solver.constraint( sum(variables[k]*area2[k] for k in nz_linear_inds) >= a1/lf)
+            if options.verbose and options.debug:
+                print "r=", r, " nz_linear_inds=", nz_linear_inds
+ 
+#   # 4) for each column, A2 <=    layer_factor  * (sum over rows) fusion * A1  
+#   #                and  A2 >= (1/layer_factor) * (sum over rows) fusion * A2
+    for c in range(1, matrix_shape[1]):
+        nz_linear_inds = []
+        for r in range(1, matrix_shape[0]):
+            if overlap_matrix[r][c] == 0:
+                continue
+            for key, value in dict_map.iteritems():
+                if [r, c] == value:
+                    nz_linear_inds.append(key)
+        print "col=", c, " a2_matrix[:, c]=", a2_matrix[:, c]
+        if len(nz_linear_inds) > 0:
+            a2 = float(max(a2_matrix[1:, c]))
+            solver.constraint( sum(variables[k]*area1[k] for k in nz_linear_inds) <= a2*lf)
+            solver.constraint( sum(variables[k]*area1[k] for k in nz_linear_inds) >= a2/lf) 
+            if options.verbose and options.debug:
+                print "c=", c, " nz_linear_inds=", nz_linear_inds
+ 
     # Define the objective
 #   print "dict_map.keys()=", dict_map.keys()
 #   print "dict_map.values()=", dict_map.values()
@@ -263,6 +326,16 @@ def convert_omatrix_to_sparse_format(matrix):
             if matrix[i][j] > 0: 
                 sparse_matrix.append([matrix[i,0], matrix[0,j], matrix[i,j]])
     return numpy.array(sparse_matrix)
+
+# -----------------------------------------------------------------------
+
+def convert_amatrices_to_sparse_format(a1_matrix, a2_matrix):
+    sparse_amatrix = [[a1_matrix.shape[0], a1_matrix.shape[1], 0, 0]]
+    for i in range(1,a1_matrix.shape[0]):
+        for j in range(1, a1_matrix.shape[1]):
+            if a1_matrix[i][j] > 0 or a2_matrix[i][j] > 0:
+                sparse_amatrix.append([a1_matrix[i,0], a1_matrix[0,j], a1_matrix[i,j], a2_matrix[i,j]])
+    return numpy.array(sparse_amatrix)
 
 # -----------------------------------------------------------------------
 
@@ -297,21 +370,33 @@ if __name__ == "__main__":
         else:
             input_label = "ms3_" + input_data.split('.')[0][4:]
 
-        unified_omatrix = produce_unified_omatrix(input_data,input_type,options)
+        unified_omatrix, unified_a1matrix, unified_a2matrix = \
+            produce_unified_oamatrices(input_data, input_type, options)
+
         output_opath = os.path.join(ms_temp, input_label + "_overlap" +\
                                     "_z" + str(options.node) + ".txt")
         sparse_omatrix = convert_omatrix_to_sparse_format(unified_omatrix)
+        if options.verbose:
+            print "\nSaving the sparse unified overlap matrix in file ", output_opath
         numpy.savetxt(output_opath, sparse_omatrix, fmt='%10u', delimiter='\t')
 
-        unified_fmatrix = generate_fusion_matrix(unified_omatrix, options)
+        output_apath = os.path.join(ms_temp, input_label + "_areas" +\
+                                    "_z" + str(options.node) + ".txt")
+        sparse_amatrix = convert_amatrices_to_sparse_format(unified_a1matrix, unified_a2matrix)
+        if options.verbose:
+            print "\nSaving the sparse unified areas matrix in file ", output_apath
+        numpy.savetxt(output_apath, sparse_amatrix, fmt='%10u', delimiter='\t')
+
+        unified_fmatrix = generate_fusion_matrix(unified_omatrix, \
+                              unified_a1matrix, unified_a2matrix, options)
         if options.debug:
             check_fusion_matrix(unified_fmatrix)
         sparse_fmatrix = convert_fmatrix_to_sparse_format(unified_fmatrix)
         if options.debug:
             print "sparse_fmatrix=", sparse_fmatrix
+
         output_fpath = os.path.join(ms_temp, input_label + "_fusion" +\
                                     "_z" + str(options.node) + ".txt")
-
         if options.verbose:
             print "Saving the sparse unified fusion matrix in file ", output_fpath
         numpy.savetxt(output_fpath, sparse_fmatrix, fmt='%10u', delimiter='\t')
