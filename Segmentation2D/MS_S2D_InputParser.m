@@ -14,15 +14,14 @@ classdef MS_S2D_InputParser < inputParser
         defaultNumSubY      = 1;
         defaultDX           = 50;
         defaultDY           = 50;
-        defaultSubX         = 0;
-        defaultSubY         = 0;
+        defaultSubX         = 0;   % if > 0, process data only in this subsection
+        defaultSubY         = 0;   % if > 0, process data only in this subsection
         defaultThresh       = 0;
         defaultThresh2      = 0;
-        defaultMaxSize      = Inf; 
-        defaultOutBW        = ''; % name for output black/white image file
-        defaultOutSeg       = ''; % name for output segmentation file
-        defaultOutThr       = ''; % name for output intensity thresholds file
-        defaultRGB          = 0;  % show RGB labels                       
+        defaultOutBW        = '';  % name for output black/white image file
+        defaultOutSeg       = '';  % name for output segmentation file
+        defaultOutThr       = '';  % name for output intensity thresholds file
+        defaultRGB          = 0;   % show RGB labels                       
         defaultHistogram    = 0;
         defaultScale        = 1;
         defaultMembProb     = ''; % path to the membranes probability file
@@ -30,6 +29,7 @@ classdef MS_S2D_InputParser < inputParser
         defaultMitoMembProb = ''; % path to the mitochondria probability file
         defaultUseMembPr    = 0;  % use membrane probabilities instead of grayscale signals
         defaultVesicles     = 0;
+        defaultDistType     = 1; % may be 1 or 2
     end
 
     methods
@@ -70,8 +70,8 @@ classdef MS_S2D_InputParser < inputParser
                 obj.defaultThresh2   = num2str(obj.defaultThresh2);
                 obj.defaultDX        = num2str(obj.defaultDX);          
                 obj.defaultDY        = num2str(obj.defaultDY);                
-                obj.defaultMaxSize   = num2str(obj.defaultMaxSize);
                 obj.defaultScale     = num2str(obj.defaultScale);
+                obj.defaultDistType  = num2str(obj.DistType);
             end
 
             % Optional parameters
@@ -90,7 +90,6 @@ classdef MS_S2D_InputParser < inputParser
             obj.addParamValue('sy',        obj.defaultSubY);
             obj.addParamValue('thr',       obj.defaultThresh);
             obj.addParamValue('thr2',      obj.defaultThresh2);
-            obj.addParamValue('maxSize',   obj.defaultMaxSize);
             obj.addParamValue('resize',    obj.defaultScale);  
             obj.addParamValue('outBW',     obj.defaultOutBW')
             obj.addParamValue('outSeg',    obj.defaultOutSeg);
@@ -101,6 +100,7 @@ classdef MS_S2D_InputParser < inputParser
             obj.addParamValue('membPr',    obj.defaultMembProb);
             obj.addParamValue('mitoPr',    obj.defaultMitoProb);
             obj.addParamValue('mitoMembPr',obj.defaultMitoMembProb);
+            obj.addParamValue('distType',  obj.defaultDistType);
             obj.KeepUnmatched = true;
             parse@inputParser(obj, fracBlack, fracBlack2, varargin{:});
         end

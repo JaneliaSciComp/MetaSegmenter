@@ -44,6 +44,9 @@ function [M_thr1, M_thr2, M_thr] = MS_S2D_GetThresholdIntensity(Igr, subsections
         x_center(jx) = int32(round(mean(subsections(k).xpixels)));
         [ymin ymax] = get_bounds(iy, ny, y_center(1), size1);
         [xmin xmax] = get_bounds(jx, nx, x_center(1), size2);
+            disp(' ');
+            disp(['y_center(iy)=' num2str(y_center(iy)) ' x_center(jx)=' num2str(x_center(jx))]);
+            disp(['ymin ymax=' num2str([ymin ymax]) ' xmin xmax=' num2str([xmin xmax])]);
         Igr_reg = Igr(subsections(k).ypixels,subsections(k).xpixels);
         [thr1, thr2, thr] = get_threshold_intensity_for_one_subsection([ymin ymax], ...
                                 [xmin xmax], Igr_reg, options, fid);
@@ -81,12 +84,12 @@ function M_thr = do_not_interpolate_intensity_thresholds(Igr, nx, ny, ...
 
 % -- --------------------------------------------------------------------------
 
-function [ind_min, ind_max] = get_bounds(i, n, center, my_size)
+function [ind_min, ind_max] = get_bounds(i, n, center1, my_size)
     if i < n
-        ind_min = 1 + (i -1)*center*2;
-        ind_max =      i    *center*2;
+        ind_min = 1 + (i -1)*(2*(center1-1) + 1);
+        ind_max = ind_min + 2*(center1 - 1);
     else
-        ind_min = 1 + (i -1)*center*2;
+        ind_min = 1 + (i -1)*(2*(center1-1) + 1);
         ind_max = my_size;
     end
     
@@ -208,7 +211,7 @@ function [threshold, dist1, dist2] = ...
     Ibw1 = MS_S2D_AddBoundaryPadding(im2bw(Igr/255., threshold1/255.), 0);
     Ibw2 = MS_S2D_AddBoundaryPadding(im2bw(Igr/255., threshold2/255.), 0);
 
-    [dist, ind] = MS_S2D_BWDistance(Ibw1, Ibw2, options.verbose);
+    [dist, ind] = MS_S2D_BWDistance(Ibw1, Ibw2, 1, options.verbose);
     dist1 = dist;
     dist2 = dist;
     disp(['dist=' num2str(dist)]);
@@ -217,8 +220,8 @@ function [threshold, dist1, dist2] = ...
     while (threshold1_best - threshold2_best) > 1
         threshold = round((threshold1_best + threshold2_best)/2);
         Ibw = MS_S2D_AddBoundaryPadding(im2bw(Igr/255., threshold/255.), 0);
-        [dist1, ind] = MS_S2D_BWDistance(Ibw1, Ibw, 0);
-        [dist2, ind] = MS_S2D_BWDistance(Ibw2, Ibw, 0);
+        [dist1, ind] = MS_S2D_BWDistance(Ibw1, Ibw, 1, 0);
+        [dist2, ind] = MS_S2D_BWDistance(Ibw2, Ibw, 1, 0);
         if dist1 < dist2
 %           Ibw1 = MS_S2D_AddBoundaryPadding(im2bw(Igr/255., threshold/255.), 0);
             threshold1_best = threshold;
@@ -231,8 +234,8 @@ function [threshold, dist1, dist2] = ...
     % Computing the final values
     threshold = threshold1_best;
     Ibw = MS_S2D_AddBoundaryPadding(im2bw(Igr/255., threshold/255.), 0);
-    [dist1, ind] = MS_S2D_BWDistance(Ibw1, Ibw, 0);
-    [dist2, ind] = MS_S2D_BWDistance(Ibw2, Ibw, 0);
+    [dist1, ind] = MS_S2D_BWDistance(Ibw1, Ibw, 1, 0);
+    [dist2, ind] = MS_S2D_BWDistance(Ibw2, Ibw, 1, 0);
 
 % -- --------------------------------------------------------------------------
 
@@ -240,7 +243,7 @@ function [threshold] = get_optimal_threshold(Igr, threshold1, threshold2, option
     Ibw1 = MS_S2D_AddBoundaryPadding(im2bw(Igr/255., threshold1/255.), 0);
     Ibw2 = MS_S2D_AddBoundaryPadding(im2bw(Igr/255., threshold2/255.), 0);
     Ibw_prev = Ibw1;
-    [dist12, ind12] = MS_S2D_BWDistance(Ibw_prev, Ibw2, 0);
+    [dist12, ind12] = MS_S2D_BWDistance(Ibw_prev, Ibw2, 2, 0);
     disp(' ');
     disp(['dist12=' num2str(dist12)]);
 
@@ -250,9 +253,9 @@ function [threshold] = get_optimal_threshold(Igr, threshold1, threshold2, option
     while (threshold > threshold2)
         threshold = threshold -1;
         Ibw = MS_S2D_AddBoundaryPadding(im2bw(Igr/255., threshold/255.), 0);
-        [dist , ind ] = MS_S2D_BWDistance(Ibw_prev, Ibw, 0);
-        [dist1, ind1] = MS_S2D_BWDistance(Ibw, Ibw1, 0);
-        [dist2, ind2] = MS_S2D_BWDistance(Ibw, Ibw2, 0);
+        [dist , ind ] = MS_S2D_BWDistance(Ibw_prev, Ibw, 2, 0);
+        [dist1, ind1] = MS_S2D_BWDistance(Ibw, Ibw1, 2, 0);
+        [dist2, ind2] = MS_S2D_BWDistance(Ibw, Ibw2, 2, 0);
 %       disp(['threshold=' num2str(threshold) ' dist=' num2str(dist)]);
         threshold_best = threshold+1;
         if (dist1 > dist2)
@@ -296,17 +299,25 @@ function [threshold1, threshold2, threshold] = ...
         thresh = multithresh(Igr, 2);
         threshold1 = min(threshold_Otsu, thresh(2));
         threshold_Otsu2 = MS_S2D_GetOtsuThresholds(Igr, threshold_Otsu, 1);
-        threshold2 = min(threshold_Otsu2, thresh(1));
+        if options.distType == 1
+           threshold2 = min(threshold_Otsu2, thresh(1));
+        else
+           threshold2 = min(threshold_Otsu2, thresh(1));
+        end
         disp(' ');
-        disp(['threshold1=', num2str(threshold1) ' threshold2=' num2str(threshold2)]);
+        disp(['threshold1=', num2str(threshold1) ' threshold2=' num2str(threshold2) ' distType=' num2str(options.distType)]);
 
         % Compute the distance between BW images
         Ibw1 = MS_S2D_AddBoundaryPadding(im2bw(Igr/255., threshold1/255.), 0);
         Ibw2 = MS_S2D_AddBoundaryPadding(im2bw(Igr/255., threshold2/255.), 0);
 
-        [dist, ind] = MS_S2D_BWDistance(Ibw1, Ibw2, options.verbose);
-        [threshold, dist1, dist2] = get_optimal_threshold_using_bisection(Igr, threshold1, threshold2, options);
-%       [threshold] = get_optimal_threshold(Igr, threshold1, threshold2, options);
+        if options.distType == 1
+            [dist, ind] = MS_S2D_BWDistance(Ibw1, Ibw2, 1, options.verbose);
+            [threshold, dist1, dist2] = get_optimal_threshold_using_bisection(Igr, threshold1, threshold2, options);
+        else
+            [dist, ind] = MS_S2D_BWDistance(Ibw1, Ibw2, 2, options.verbose);
+            [threshold] = get_optimal_threshold(Igr, threshold1, threshold2, options);
+        end
         disp(' ');
         disp(['optimal_threshold= '  num2str(threshold)]);
         if length(options.outThr > 0)

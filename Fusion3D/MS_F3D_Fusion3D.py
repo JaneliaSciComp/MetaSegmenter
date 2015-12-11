@@ -475,7 +475,7 @@ if __name__ == "__main__":
 
     if len(args) == 1:
         input_data = args[0]
-        if not os.path.exists(input_data):
+        if not os.path.exists(os.path.join(ms_data,input_data)):
             sys.exit("\nInput data is not found")
         input_type = get_input_type(input_data, options)
 

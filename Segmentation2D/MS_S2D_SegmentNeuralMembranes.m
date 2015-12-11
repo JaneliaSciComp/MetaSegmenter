@@ -108,6 +108,8 @@ function Ibwn = MS_S2D_SegmentNeuralMembranes(inputName,fracBlack,fracBlack2,var
             MS_S2D_ShowImage(mat2gray(mitoPr), 'Mitochondria probabilities', options);
         end
         Igr = whiten_out_mitochondria(Igr, mitoPr, options);
+        disp(' ');
+        disp(['distType=' num2str(options.distType)]);
         if options.dispOn
             MS_S2D_ShowImage(Igr, 'Enhanced raw map, mitochondria whitened out (Igr)', options);
         end

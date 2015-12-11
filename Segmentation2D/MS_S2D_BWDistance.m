@@ -1,4 +1,4 @@
-function [BWdist, ind_best] = MS_S2D_BWDistance(Ibw1, Ibw2, verbose)    
+function [BWdist, ind_best] = MS_S2D_BWDistance(Ibw1, Ibw2, dist_type, verbose)    
     % Compute a distance between two binary images 
     CC1 = bwconncomp(Ibw1); 
     CC2 = bwconncomp(Ibw2);
@@ -24,8 +24,7 @@ function [BWdist, ind_best] = MS_S2D_BWDistance(Ibw1, Ibw2, verbose)
         disp(['CSV2=' num2str(CSV2(1:Nc))]);
     end
     BWdist = 0.;
-    old_dist = 1;
-    if old_dist > 0
+    if dist_type == 1   
         for i=1:Nc
             BWdist = BWdist + (CSV1(i) - CSV2(i))^2;
         end
@@ -34,14 +33,13 @@ function [BWdist, ind_best] = MS_S2D_BWDistance(Ibw1, Ibw2, verbose)
     else
         ind1 = find_num_good_regions(CSV1, Nc1);
         ind2 = find_num_good_regions(CSV2, Nc2);
-        ind_best = 1;
-        for i=1:min(ind1, ind2)
-            ratio = abs(double(CSV1(i) - CSV2(i)))/double(max(CSV1(i), CSV2(i)));
-            if  BWdist < ratio
-                BWdist = ratio;
-                ind_best = i;
-            end
+        BWdist = 0;  
+        ind_max = max(ind1, ind2);
+        Nc = min(Nc, ind_max); 
+        for i=1:Nc
+            BWdist = BWdist + (CSV1(i) - CSV2(i))^2;
         end
+        BWdist = sqrt(BWdist);
     end
 %   disp(['Nc=' num2str(Nc) ' ind=' num2str(min(ind1,ind2)), ' BWdist=' num2str(BWdist)]);
 
@@ -53,11 +51,8 @@ function ind = find_num_good_regions(CSV, Nc)
     ind = Nc;
     for i=Nc:-1:2
         dsize = CSV(i-1) - CSV(i);
-        if  max_dsize < dsize
-            max_dsize = dsize;
-        end 
         if i < Nc 
-            ratio = dsize/max_dsize;
+            ratio = double(dsize)/double(CSV(i));           
             if max_ratio < ratio
                 ind = i;
                 max_ratio = ratio;

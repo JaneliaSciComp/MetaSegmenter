@@ -41,7 +41,7 @@ function Ibwd = MS_S2D_SegmentDarkStructures(inputName,fracBlack,fracBlack2,vara
     Igr = mat2gray(I);
     clear I;
 
-    [M_thr, M_thr2] = MS_S2D_GetThresholdIntensity(Igr, 2, subsections, options);      
+    [M_thr, M_thr2] = MS_S2D_GetThresholdIntensity(Igr, subsections, options);      
     Ibwd = segment_dark_structures(Igr, M_thr, M_thr2, options);
     Ibwd = MS_S2D_AddBoundaryPadding(Ibwd, 0);
 
