@@ -19,23 +19,12 @@ import commands
 
 import MS_LIB_Dict
 import MS_LIB_Options
+import MS_LIB_IO
+import MS_LIB_Util
 
 ms_home = os.environ['MS_HOME'] # where source code is located
 ms_data = os.environ['MS_DATA'] # dir for initial input data and final output
 ms_temp = os.environ['MS_TEMP'] # dir for intermediate data files
-
-# -------------------------------------------------------------------------------
-
-def read_input(stack_file_name):
-    if re.search(".h5", stack_file_name):
-        f = h5py.File(stack_file_name, 'r')
-        key = f.keys()[0]
-        data = numpy.uint64(numpy.transpose(f[key]))
-    elif re.search(".tif", stack_file_name):
-        data = numpy.uint64(numpy.transpose(tiff.imread(stack_file_name)))
-    else:
-        sys.exit("Unrecognized stack type")
-    return data
 
 # -------------------------------------------------------------------------------
 
@@ -116,55 +105,6 @@ def create_epilog_job(ms_data, label1, label2, options):
 
 # -------------------------------------------------------------------------------
 
-def get_counts(z, data1, data2, options):
-    N1  = {}
-    N2  = {}
-    N12 = {}
-
-    # Extract counts
-    im1 = data1[:,:,z]
-    im2 = data2[:,:,z]
-    print "Creating list of labels1 ..."
-    labels1 = numpy.unique(im1)            
-    print " ... len(labels1)=", len(labels1)
-    print "Creating list of labels2 ..."
-    labels2 = numpy.unique(im2)      
-    print " ... len(labels2)=", len(labels2)
-    print "Computing counts N1 ..."
-    for k1 in labels1:
-        count = (im1 == k1).sum()
-        if not k1 in N1.keys():
-            N1[str(k1)]  = count
-        else:
-            N1[str(k1)] += count
-    print "Computing counts N2 ..."
-    for k2 in labels2:
-        count = (im2 == k2).sum()
-        if not k2 in N2.keys():
-            N2[str(k2)]  = count
-        else:
-            N2[str(k2)] += count
-    print "Computing counts N12 ..."
-    for k1 in labels1:
-        for k2 in labels2:
-            k12 = str(k1) + "_" + str(k2)
-            count = ((im1 == k1) & (im2 == k2)).sum()
-            if not k12 in N12.keys():
-                N12[k12]  = count
-            else:
-                N12[k12] += count
-    if options.verbose:
-        print "len(labels1)=", len(labels1), " len(keys1)=", len(N1.keys()), \
-             " len(labels2)=", len(labels2), " len(keys2)=", len(N2.keys())
-    if options.verbose:
-        print "\nN1.values=", N1.values()
-        print "\nN2.values=", N2.values()
-        print "\nN12.values=", N12.values()
-
-    return (N1, N2, N12)
-
-# -------------------------------------------------------------------------------
-
 def output_counts(z, label1, label2, N1, N2, N12, options):
     output_path1  = os.path.join(ms_temp, "VI_" + label1 + "_" + label2 + "_N1_counts_z"  + str(z) + ".json")
     with open(output_path1, 'w') as fp:
@@ -239,15 +179,15 @@ def submit_all_jobs(compute_counts_script_path, epilog_script_path, options):
 
 # -------------------------------------------------------------------------------
 
-def process_inputs_high_level(num_layers, stack1, stack2, options):
+def process_inputs_high_level(num_layers, stack1_path, stack2_path, options):
 
-    label1 = ntpath.basename(stack1).split('.')[0]
-    label2 = ntpath.basename(stack2).split('.')[0]
+    label1 = ntpath.basename(stack1_path).split('.')[0]
+    label2 = ntpath.basename(stack2_path).split('.')[0]
 
     print "options.processing_step_beg=", options.processing_step_beg
     if int(options.processing_step_beg) == 1:
         compute_counts_script_path = \
-            create_compute_counts_job(num_layers, stack1, stack2, options)
+            create_compute_counts_job(num_layers, stack1_path, stack2_path, options)
     else:
         compute_counts_script_path = ""
 
@@ -264,7 +204,7 @@ def process_inputs_high_level(num_layers, stack1, stack2, options):
 
 # -----------------------------------------------------------------------------
 
-def process_inputs_low_level(num_layers, stack1, stack2, options):
+def process_inputs_low_level(num_layers, stack1_path, stack2_path, options):
     num_nodes, dict_node_z = \
             MS_LIB_Dict.map_node_to_z(num_layers, options)
 
@@ -274,24 +214,23 @@ def process_inputs_low_level(num_layers, stack1, stack2, options):
     if options.verbose:
         print "z=", z
 
-    # Read input data
-    f1 = h5py.File(stack1, 'r')
-    key = f1.keys()[0]
-    data1 = numpy.transpose(f1[key])
-#   data1 = numpy.squeeze(data[:, :, z])
-    
-    f2 = h5py.File(stack2, 'r')
-    key = f2.keys()[0]
-    data2 = numpy.transpose(f2[key])
-#   data2 = numpy.squeeze(data[:, :, z])
-
     # Compute counts
-    N1, N2, N12 = get_counts(z, data1, data2, options)
+    im1 = numpy.squeeze(numpy.transpose(MS_LIB_IO.read_input1(stack1_path,z)))
+    if options.transpose2:
+        im2 = numpy.squeeze(numpy.transpose(MS_LIB_IO.read_input1(stack2_path,z)))
+    else:
+        im2 = numpy.squeeze(               (MS_LIB_IO.read_input1(stack2_path,z)))
+    
+    N1, N2, N12 = MS_LIB_Util.get_VI_counts(im1, im2)
 
-    print "data1.shape=", data1.shape, " data2.shape=", data2.shape
+    if options.verbose:
+        print "\nnum_N1_values=",  len(N1.values()),  " N1.values()=",  sorted(N1.values())
+        print "\nnum_N2_values=",  len(N2.values()),  " N2.values()=",  sorted(N2.values())
+        print "\nnum_N12_values=", len(N12.values()), " N12.values()=", sorted(N12.values())
+    print "imdata1.shape=", im1.shape, " imdata2.shape=", im2.shape
     # Output results
-    label1 = ntpath.basename(stack1).split('.')[0]
-    label2 = ntpath.basename(stack2).split('.')[0]
+    label1 = ntpath.basename(stack1_path).split('.')[0]
+    label2 = ntpath.basename(stack2_path).split('.')[0]
     output_counts(z, label1, label2, N1, N2, N12, options)
 
 # -----------------------------------------------------------------------------
@@ -324,12 +263,12 @@ if __name__ == "__main__":
     key = f2.keys()[0]
     num_layers2 = int(f2[key].shape[0])
 
-    if not num_layers1 == num_layers2:
-        print "num_layers1=", num_layers1, " num_layers2=", num_layers2
-        sys.exit('Number of layers in the input files must be the same')
-    else:
-        options.zmin = max(int(options.zmin), 0)
-        options.zmax = min(int(options.zmax), num_layers1)
+#   if not num_layers1 == num_layers2:
+#       print "num_layers1=", num_layers1, " num_layers2=", num_layers2
+#       sys.exit('Number of layers in the input files must be the same')
+#   else:
+    options.zmin = max(int(options.zmin), 0)
+    options.zmax = min(int(options.zmax), num_layers1)
     
     stack1_path = os.path.join(ms_data, stack_file_name1)
     stack2_path = os.path.join(ms_data, stack_file_name2)

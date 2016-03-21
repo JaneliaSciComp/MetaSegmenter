@@ -6,6 +6,7 @@ import os
 import sys, re, optparse
 import tifffile as tiff
 import numpy
+import h5py
 from scipy import misc
 import httplib
 from pydvid import voxels, general
@@ -185,4 +186,19 @@ def read_input(input_data,input_type,ymin,ymax,xmin,xmax,zmin,zmax,options):
         image_data = image_data.copy(order='C')
     return image_data
 
+# -------------------------------------------------------------------------------
+
+def read_input1(seg_stack_h5_path, layer_id):
+    if re.search(".h5", seg_stack_h5_path):
+        f    = h5py.File(seg_stack_h5_path, 'r')
+        key  = f.keys()[0]
+        data = f[key]
+    elif re.search(".tif", seg_stack_h5_path):
+        data = tiff.imread(seg_stack_h5_path)
+    else:
+        sys.exit("Unrecognized stack type")
+    print "data.shape=", data.shape, " layer_id=", layer_id
+    if layer_id >= 0:
+        return data[layer_id,:,:]
+    return data
 
