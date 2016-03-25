@@ -125,6 +125,10 @@ def create_data_extraction_and_segmentation_job(outfolderpath, \
     if my_fracBlack2 == "None":
         my_fracBlack2 = "0"
 
+    if (len(options.nlen) == 0 or len(options.nwid) == 0) and \
+        len(options.min_win) == 0:
+        sys.exit("\nPlease, specify either options nlen and nwid or option min_win\n")
+
     scr = open(fragment_segmentation_script_path, 'wt')
     scr.write("#!/usr/bash\n")
     scr.write("#$ -t 1-" + str(num_nodes) + "\n")
@@ -142,10 +146,15 @@ def create_data_extraction_and_segmentation_job(outfolderpath, \
         " -X " + str(options.nx)   + " -x " + str(options.dx) + \
         " -Y " + str(options.ny)   + " -y " + str(options.dx) + \
         " -z " + str(zmin)         + " -Z " + str(zmax) +\
-        " -l " + str(options.nlen) + " -w " + str(options.nwid) + \
         " -f " + my_fracBlack      + " -F " + my_fracBlack2 +\
         " -r " + str(options.resize_scale) +\
-        " -b " + str(options.no_dark)          
+        " -R " + str(options.num_ref) + \
+        " -I " + str(options.inc_ref) + \
+        " -b " + str(options.no_dark)         
+    if len(options.nlen) > 0 and len(options.nwid) > 0:
+        command_segm_data += " -l " + str(options.nlen) + " -w " + str(options.nwid)
+    elif len(options.min_win) > 0:
+        command_segm_data += " -W " + str(options.min_win) 
     if len(options.memb_prob) > 0:
         memb_prob_dir_path = os.path.join(ms_data, options.memb_prob)
         command_segm_data += " -M '" + memb_prob_dir_path + "'"
@@ -167,6 +176,8 @@ def create_data_extraction_and_segmentation_job(outfolderpath, \
         command_segm_data += " -T "
     if options.use_memb_probs:
         command_segm_data += " -u "
+    if not options.a == 0 or not options.q == 0: 
+        command_segm_data += " -a " + str(options.a) + " -q " + str(options.q)
     command_extr_data += "\n"
     command_segm_data += "\n"
     scr.write(command_extr_data)
@@ -506,12 +517,20 @@ def process_input_data_low_level(dict_node_xyz, input_label,options):
     command_segm = executable_path + " " + input_path + " " + \
                    my_fracBlack    + " " + my_fracBlack2 + " " +\
                    " verbose "     + str(int(options.verbose)) + " " + \
-                   " ny      "     + options.nlen              + " " + \
-                   " nx      "     + options.nwid              + " " + \
-                   " outBW   "     + output_path               + " " + \
-                   " resize  "     + str(options.resize_scale)
+                   " incRef "      + str(int(options.inc_ref)) + " " + \
+                   " numRef "      + str(int(options.num_ref)) + " " + \
+                   " outBW   "     + output_path                         
+    
+    if len(options.nlen) > 0 and len(options.nwid) > 0:
+         # initial guess mode
+        command_segm += " ny " + str(options.nlen) + " nx " + str(options.nwid)
+    elif len(options.min_win) > 0:
+        # refinement mode
+        command_segm += " minWin  " + str(options.min_win)
+    else:
+        sys.exit("\nPlease, specify either nlen and nwid, or min_win")
     if int(options.no_dark) > 0:
-        command_segm += " noDark  1 "
+        command_segm += " darkStr 0 "
     if len(options.memb_prob) > 0:
         command_segm += " membPr " + input_memb_prob_path
     if len(options.mito_prob) > 0:
@@ -520,6 +539,8 @@ def process_input_data_low_level(dict_node_xyz, input_label,options):
         command_segm += " outThr " + output_path
     if options.use_memb_probs:
         command_segm += " useMembPr 1 "
+    if not options.a == 0 or not options.q == 0:
+        command_segm += " a " + str(options.a) + " q " + str(options.q)
 
     command_rm   = "rm -f " + input_path
     if int(options.msize) < sys.maxint:             
@@ -565,6 +586,8 @@ if __name__ == "__main__":
             parser.print_usage()
             sys.exit(2)         
         input_dim = MS_LIB_IO.get_data_dimensions(input_data, input_type, options)
+        if (not options.a == 0 or not options.q == 0) and (not options.a == 1 or not options.q == 1):
+            sys.exit("\nIf a != 0 or q != 0, at least one of these parameters must be == 1")
         if options.verbose:
             print "Input data dimensions: ", input_dim
         if options.output_thresholds:

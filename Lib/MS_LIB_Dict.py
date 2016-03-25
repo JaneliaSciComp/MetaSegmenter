@@ -14,7 +14,7 @@ def map_node_to_z(num_layers, options):
     z_min   = max(0,          int(options.zmin))
     z_max   = min(num_layers, int(options.zmax))
     if options.verbose:
-        print "\noptions.zmin=", options.zmin, " options.zmax=", options.zmax
+        print "\nnum_layers=", num_layers, " options.zmin=", options.zmin, " options.zmax=", options.zmax
    
     dict_node_z = {}
     node = 1

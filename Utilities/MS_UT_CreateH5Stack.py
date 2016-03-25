@@ -4,7 +4,7 @@
 #
 
 import re
-import matplotlib
+import matplotlib.image
 from PIL import Image
 import h5py
 import numpy
@@ -159,16 +159,16 @@ def populate_stack(nd_stack, input_dir, input_files, output_type, imdir, options
             try:
                 print "\nTrying Image.open ..."
                 image_data = Image.open(ifile_path)
-                print "Using Image: max_label=", numpy.max(im)
+                print "Using Image: max_label=", numpy.max(image_data)
             except:
                 try:  
                     print "\nTrying misc.imread ..."
                     image_data = misc.imread(ifile_path)
-                    print "Using misc.imread: max_label=", numpy.max(im)
+                    print "Using misc.imread: max_label=", numpy.max(image_data)
                 except:
                     print "\nTrying matplotlib.image.imread ..."
                     image_data = matplotlib.image.imread(ifile_path)
-                    print "Using matplotlib: max_label=", numpy.max(im)
+                    print "Using matplotlib: max_label=", numpy.max(image_data)
 #       if output_type == "data" and len(imdir) == 0:
 #           image_data = normalize_image(image_data)
 #       elif output_type == "data" and len(imdir) > 0:

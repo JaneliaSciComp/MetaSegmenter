@@ -26,16 +26,14 @@ files = sorted(os.listdir(dir_path))
 num_files = len(files) 
 print "num_files=", num_files               
 i = file_id-1
+size = 1250, 1250
 while i < num_files:
     print "File#=", i+1, " name=", files[i]
     myfile = os.path.join(dir_path, files[i])
-    image_data = numpy.asarray(Image.open(myfile))
-    if len(image_data.shape) == 2:
-        plt.imshow(image_data, cmap = cm.Greys_r)
-        show()
-    else:
-        plt.imshow(image_data)
-        plt.show()
+    img = Image.open(myfile)
+#   img.resize([50, 50])
+    img.thumbnail(size, Image.ANTIALIAS)
+    img.show()
     try:
         id = input("Enter layer_id (=0 to exit) or press enter to continue to next layer")
         print "id=", id

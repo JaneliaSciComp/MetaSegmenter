@@ -9,6 +9,8 @@
 import os
 import sys, re 
 import optparse
+import h5py
+import numpy
 
 import MS_LIB_Dict
 import MS_LIB_Options
@@ -113,25 +115,36 @@ def process_inputs_zmerge(zdim, input_label, node, dict_nodes_zmerge, options):
     match_str0 = dict_nodes_zmerge[node] 
     match_str  = input_label + '*' + match_str0 + "$"
 
-    output_path = os.path.join(ms_data, \
-        input_label + "_" + match_str0.split(".")[0] + ".h5")
-    executable_path = os.path.join(ms_home,"Utilities","MS_UT_CreateH5Stack.py")
-    command_zmerge = executable_path    + " " + ms_temp + " -t data " + \
-                     " -m " + match_str + " -u _y -o " + output_path +\
-                     " -z " + str(options.zmin) + " -Z " + str(options.zmax) +\
-                     " -i " + str(options.uint)
-    if options.verbose:
-        print "\ncommand_zmerge=", command_zmerge
     command_rm     = "rm -f "
     z_range = range(max(0, int(options.zmin)), min(zdim, int(options.zmax)))
+    i = 0
     for z in z_range:
-        input_file = input_label + "_z" + str(z+1) + "_" + match_str0
-    input_path = os.path.join(ms_temp, input_file)
-    command_rm += " " + input_path
-    os.system(command_zmerge)
+        input_file = os.path.join(ms_temp, input_label + "_z" + str(z+1) + "_Seg.h5")
+        command_rm += " " + input_file
+    
+        # Read input file
+        if re.search(".h5", input_file):
+            fin = h5py.File(input_file, 'r')
+            key = fin.keys()[0]
+            image_data = numpy.squeeze(fin[key])
+        else:
+            # Using PIL
+            image_data = numpy.asarray(Image.open(input_file))
+            print "Using PIL: max_label=", numpy.max(image_data)
+        if i == 0:
+            stack_shape = [len(z_range), image_data.shape[0], image_data.shape[1]]
+            stack_data = numpy.zeros(stack_shape, dtype = numpy.uint64)
+        stack_data[i,:,:] = numpy.uint64(image_data[:,:])
+        i = i + 1
+
+    output_path = os.path.join(ms_data, \
+        input_label + "_" + match_str0.split(".")[0] + ".h5")
+    fout  = h5py.File(output_path, 'w')
+    fout.create_dataset('main', stack_data.shape, data=stack_data)
 
     if options.verbose:
         print "In MS_S2D_MergeImageFragments.py/process_inputs_zmerge: "
+        print "output_path=", output_path
         print "command_rm=", command_rm
 
     if not options.debug:

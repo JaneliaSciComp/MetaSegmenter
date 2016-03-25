@@ -25,6 +25,15 @@ function Ibwn = MS_S2D_SegmentNeuralMembranes(inputName,fracBlack,fracBlack2,var
     if length(size(Igr) > 2)
         Igr = Igr(:,:,1);
     end
+
+    subWin = [1:size(Igr,1); 1:size(Igr,2)];
+    if numel(options.subWin) > 0
+        limits = [ cellfun(@str2num,strsplit(options.subWin,','))];
+        limits
+        subWin = [limits(2):limits(4); limits(1):limits(3)];
+        Igr = Igr(subWin(1,:),subWin(2,:)); 
+    end
+
     disp(['In MS_S2D_SegmentNeuralMembranes: size(Igr)=' num2str(size(Igr))]);
     disp(['    options.fracBlack=' num2str(options.fracBlack)]);
     disp(['    max(Igr)=' num2str(max(max(Igr))) ' min(Igr)=' num2str(min(min(Igr)))]);
@@ -77,10 +86,13 @@ function Ibwn = MS_S2D_SegmentNeuralMembranes(inputName,fracBlack,fracBlack2,var
 
     % If membrane probabilities are available,
     % use them to accent the membrane signals
+    options.thr_min = 0;
+    options.thr_max = 255;
     if length(options.membPr) > 0
         disp(' ');
         disp('Enhancing membrane signals ...');
         membPr = MS_S2D_ReadProbabilities(options.membPr, 2);
+        membPr = membPr(subWin(1,:),subWin(2,:));
         disp(['min(membPr)=' num2str(min(min(membPr))) ' max(membPr)=' num2str(max(max(membPr)))]);
         if options.dispOn
             MS_S2D_ShowImage(mat2gray(membPr), 'Membrane probabilities', options);
@@ -104,18 +116,20 @@ function Ibwn = MS_S2D_SegmentNeuralMembranes(inputName,fracBlack,fracBlack2,var
         disp(' ');
         disp('Whitening out mitochondria ...');
         mitoPr = MS_S2D_ReadProbabilities(options.mitoPr, 3);
-        if options.dispOn
+        mitoPr = mitoPr(subWin(1,:),subWin(2,:));
+        if options.dispOn || options.dispOn2
             MS_S2D_ShowImage(mat2gray(mitoPr), 'Mitochondria probabilities', options);
         end
-        Igr = whiten_out_mitochondria(Igr, mitoPr, options);
+        Igr = whiten_out_mitochondria(Igr, mitoPr, subWin, options);
+%       Igr = whiten_out_mitochondria_new(Igr, mitoPr, options);
         disp(' ');
-        disp(['distType=' num2str(options.distType)]);
-        if options.dispOn
+        if options.dispOn || options.dispOn2
             MS_S2D_ShowImage(Igr, 'Enhanced raw map, mitochondria whitened out (Igr)', options);
         end
         clear mitoPr;
         if length(options.membPr) > 0
             membPr = MS_S2D_ReadProbabilities(options.membPr, 2);
+            membPr = membPr(subWin(1,:),subWin(2,:));
             Igrw = enhance_membrane_signals_by_probabilities(Igr, membPr, options);
         end
     end
@@ -124,6 +138,7 @@ function Ibwn = MS_S2D_SegmentNeuralMembranes(inputName,fracBlack,fracBlack2,var
         mitoMembPr = MS_S2D_ReadProbabilities(options.mitoMembPr, 4);
         disp(['max(mitoMembPr)=' max(max(mitoMembPr))]);
         mitoMembPr = normalize_probabilities(mitoMembPr);
+        mitoMembPr = mitoMembPr(subWin(1,:),subWin(2,:));
         if options.dispOn
             MS_S2D_ShowImage(mat2gray(mitoMembPr), 'Mitochondria probabilities', options);
         end
@@ -141,9 +156,10 @@ function Ibwn = MS_S2D_SegmentNeuralMembranes(inputName,fracBlack,fracBlack2,var
     % Handle subsections
     im_size = size(Igr);
     Ibwn = zeros(im_size(1),im_size(2));
-    subsections = MS_S2D_DivideImageIntoSubsections(im_size, options);
-    [M_thr1, M_thr2, M_thr] = MS_S2D_GetThresholdIntensity(Igr, subsections, options);           
-    disp(['max(M_thr)=' num2str(max(max(M_thr))) ' max(Igr)=' num2str(max(max(Igr)))]);
+
+    [M_thr, M] = MS_S2D_GetThresholdIntensity(Igr, options);           
+
+    disp(['max(M_thr)=' num2str(max(max(M_thr))) ' min(M_thr)=' num2str(min(min(M_thr))) ' max(Igr)=' num2str(max(max(Igr)))]);
     if max(max(Igr)) > 1
         Igr = Igr / 255;
     end
@@ -154,49 +170,31 @@ function Ibwn = MS_S2D_SegmentNeuralMembranes(inputName,fracBlack,fracBlack2,var
         return;
     end
 
-    % Display binary map for upper threshold
-    if options.dispOn
-        Ibw1 = im2bw(Igr, 1);     % all values are == logical(0)
-        if size(Igr) == size(M_thr1)
-            Ibw1(Igr > M_thr1/255.) = logical(1);
-        end
-        MS_S2D_ShowImage(Ibw1, 'Binary map at upper threshold ', options);
-    end
-    clear M_thr1;
-
-    % Display binary map for lower threshold
-    if options.dispOn
-        Ibw2 = im2bw(Igr, 1);     % all values are == logical(0)
-        if size(Igr) == size(M_thr2)
-            Ibw2(Igr > M_thr2/255.) = logical(1);
-        end
-        MS_S2D_ShowImage(Ibw2, 'Binary map at lower threshold ', options);
-    end
-    clear M_thr2;
-
-    % Display binary map for optimal threshold
+    % Output binary map for optimal threshold
     Ibwn = segment_neural_membranes(Igr, M_thr, options);
     if length(options.outBW) > 0
-        imwrite(Ibwn, 'Ibwn_MS_S2D_SegmentNeuralMembranes.png');
+        imwrite(Ibwn, options.outBW);                               
     end
+   
+    % Show a heat map of the thresho;lds matrix
+    disp(['options.heatmap=' num2str(options.heatmap)]);
+    if options.heatmap 
+        MS_S2D_ShowImage(M_thr, 'Heat map of the thresholds matrix', options);
+    end
+ 
+    % Output SEG and RGB files
     if (options.padding || options.RGB || ...
         options.dispOn  || options.dispOn2)
         Ibwn = MS_S2D_AddBoundaryPadding(Ibwn, 0);
     end
-
-    % Optionally output BW file
-    if length(options.outBW) > 0
-        imwrite(Ibwn, options.outBW);
-    end
-
-     % Display labels
-    disp(['options.RGB=' num2str(options.RGB)]);
     if options.RGB || length(options.outSeg) > 0 
         L = MS_S2D_GenerateLabelsMatrix(Ibwn, options.verbose);
         max_label = max(max(L));
         disp(' ');
         disp(['num_regions=' num2str(max_label)]);
         if length(options.outSeg) > 0
+            disp(['size(L)=' num2str(size(L))]);
+            disp(['Saving the labels matrix in file ' options.outSeg ]);
             imwrite(L, options.outSeg);
         end
 
@@ -226,10 +224,10 @@ function Ibwn = segment_neural_membranes(Igr, M_thr, options)
     if size(Igr) == size(M_thr)
         Ibw(Igr > M_thr/255.) = logical(1);
     end
+
+    % removing mito boundaries % removing mito boundariesnd
     clear Igr;
 
-    Ibw = bwareaopen(Ibw,20);
-    imwrite(Ibw, 'Ibw1_MS_S2D_SegmentNeuralMembranes.tiff');
     if options.dispOn
         MS_S2D_ShowImage(Ibw, 'Black-white image (Ibw)', options);
     end
@@ -239,9 +237,8 @@ function Ibwn = segment_neural_membranes(Igr, M_thr, options)
     Ibwf = imfill(Ibw, 'holes');
     clear Ibw;
 
-    imwrite(Ibwf, 'Ibwf_MS_S2D_SegmentNeuralMembranes.tiff');
-    Ibwn = bwareaopen(Ibwf,200);
-%   Ibwn = imerode(Ibwn, strel('disk', 1));
+    imwrite(Ibwf, 'Ibwf_MS_S2D_SegmentNeuralMembranes.png');
+    Ibwn = bwareaopen(Ibwf, double(options.minSize));
     clear Ibwf;
 
     if options.dispOn | options.dispOn2
@@ -249,12 +246,14 @@ function Ibwn = segment_neural_membranes(Igr, M_thr, options)
     end
     % Compute the distance transform
     D = bwdist(Ibwn);
+%   D = bwdist(Ibwn, 'chessboard');
     clear Ibwn;
 %   % Segmentation matrix
     L = watershed(D);
     Ibwn = ones(size(D));
     % BW image with thin boundaries: 
-    Ibwn(L == 0) = 0;
+    Ibwn(L == 0)     = 0;
+    Ibwn(M_thr == 0) = 1; % removing mito boundaries
     Ibwn = imfill(Ibwn, 'holes');
 
     if options.dispOn | options.dispOn2
@@ -279,31 +278,122 @@ function norm_probs = normalize_probabilities(probs)
 % -----------------------------------------------------------------------------
 
 function Iw = enhance_membrane_signals_by_probabilities(I, membPr, options)
-    weight_multiplier = 4;
-    weighting_factor = 1. - exp(-membPr.*weight_multiplier);
-    Imin = min(min(I));
     Iw   = mat2gray(round(double(I) - membPr .* double(I)));
 
 % -----------------------------------------------------------------------------
+% Returns the fraction of pixels where mitoPr > mitoPrBg 
+function imp = is_mito(Ibw, pixelsList, mitoPr, mitoPrBg)
+    sz = size(Ibw);
+    imp = 0;
+    if numel(mitoPr) > 0
+        npix_mito = sum(mitoPr(ind2sub(sz, pixelsList)) > mitoPrBg);
+        if npix_mito > 0
+            imp = npix_mito/numel(pixelsList);
+        end
+    end
 
-function Igrw = whiten_out_mitochondria(Igr, mitoPr, options)
-    suppression_multiplier = 1.0;   
+% -- --------------------------------------------------------------------------
+
+% Compute the background mito probability using bisection method
+function mitoPrBg = compute_background_mitoPr(mitoPr, options)
+    mitoPrBg = 0.5;
+    my_strel = strel('disk', 1);
+    max_mitoPr = max(max(mitoPr));
+    if max_mitoPr > mitoPrBg
+        Ibw = im2bw(mat2gray(mitoPr), mitoPrBg);
+        CC = bwconncomp(Ibw);
+        disp(['num regions before dilation/erosion=' num2str(CC.NumObjects)]);
+%       MS_S2D_ShowImage(Ibw, 'Mito probabilities above background ', options);
+        Ibw = imdilate(Ibw, my_strel);
+        Ibw = imerode( Ibw, my_strel);
+        Ibw1 = bwareaopen(Ibw, 200);
+        CC = bwconncomp(Ibw1);
+        num_mito = CC.NumObjects;
+        disp(['num mito regions=' num2str(num_mito)]);
+        thr_max = mitoPrBg;
+        thr_min = 0.1;
+        while (thr_max-thr_min)*255 > 1
+            thr = (thr_max + thr_min)/2;
+            Ibw = im2bw(mat2gray(mitoPr), thr);
+            Ibw = imdilate(Ibw, my_strel);
+            Ibw = imerode( Ibw, my_strel);
+            Ibw = bwareaopen(Ibw, 200);
+            CC  = bwconncomp(Ibw);
+            nm  = CC.NumObjects;
+            if nm > num_mito
+                thr_min = thr;
+            else
+                thr_max = thr;
+            end
+        end
+        mitoPrBg = thr_max;
+        disp(['mitoPrBg=' num2str(mitoPrBg)]);
+%       MS_S2D_ShowImage(Ibw1, 'Mito probabilities above background after dilation/erosion', options);
+    end
+
+% -- --------------------------------------------------------------------------
+
+function counts = get_counts2(Igr, max_intensity)
+    counts = zeros(1, max_intensity + 1);
+    for i=0:max_intensity
+        counts(i+1) = sum(sum(round(Igr) == i));
+    end
+
+% -----------------------------------------------------------------------------
+
+function Igrw = whiten_out_mitochondria(Igr1, mitoPr, subWin, options)
+    % First, whiten out the mito regions in an 'old' way
+    suppression_multiplier = 1.5; 
     suppression_factor = exp(-mitoPr .* suppression_multiplier);
     if length(options.membPr) > 0
         membPr = normalize_probabilities(MS_S2D_ReadProbabilities(options.membPr, 2));
-        mitoPr(membPr > 0.3*mitoPr) = 0.;
+        membPr = membPr(subWin(1,:),subWin(2,:));
+        mitoPr(membPr > 0.5*mitoPr) = 0.;
         suppression_factor = exp(-mitoPr .* (1 - membPr) .* suppression_multiplier);
     end
-    % Suppress motochondria signals
-    disp(['max(suppression_factor)=' num2str(max(max(suppression_factor))) ...
-         ' min(suppression_factor)=' num2str(min(min(suppression_factor)))]);
-    max_Igr = double(max(max(Igr)));
-    Igrw = mat2gray(round((double(Igr).*suppression_factor + (1.-suppression_factor) * max_Igr)/max_Igr * 255.));
-    clear Igr;
-%   if length(options.membPr) > 0
-%       membPr = normalize_probabilities(MS_S2D_ReadProbabilities(options.membPr));
-%       Igrw = enhance_membrane_signals_by_probabilities(Igrw, membPr, options);
-%   end
+    max_Igr = double(max(max(Igr1)));
+    Igrw = mat2gray(round((double(Igr1).*suppression_factor + (1.-suppression_factor) * max_Igr)/max_Igr * 255.));
+    if options.dispOn
+        MS_S2D_ShowImage(Igrw, 'After the 1st step of whitening out', options);
+    end
+
+    % Second, detect an whiten out the entire mito regions 
+    % where fraction of mito pixels >= maxMitoFr
+    if 0
+        Igr1 = Igrw;
+        counts = get_counts2(round(Igr1*255), 255);
+        [thr_Otsu,mu]  = MS_S2D_GetOtsuThresholds(counts, 1);
+        Ibw = im2bw(Igr1, 1);
+        Ibw(Igr1 > thr_Otsu/255.) = logical(1);
+        Ibw = bwareaopen(Ibw, double(options.minSize));
+        Ibw = imfill(Ibw, 'holes');
+        if options.dispOn
+            MS_S2D_ShowImage(Ibw, 'Binary map at Otsu threshold ', options);
+        end
+        bgSignal = mean(mean(Igr1(Ibw == 1)));
+        % Detect mito components, dilate them and 
+        % whiten out tyhe grayscale image at their location
+        mitoPrBg = compute_background_mitoPr(mitoPr, options);
+        CC = bwconncomp(Ibw);
+        num_mito_regions = 0;
+        for k = 1:CC.NumObjects
+            if is_mito(Ibw, CC.PixelIdxList{k}, mitoPr, mitoPrBg) >= options.maxMitoFr
+                num_mito_regions = num_mito_regions + 1;
+                Ibw1 = im2bw(Igr1, 1);
+                Ibw1(CC.PixelIdxList{k}) = logical(1);
+%               for i = 1:9 % 9 pixels is the expected thickness of a mitochondrial membrane at Otsu threshold
+                    Ibw1 = imdilate(Ibw1,strel('disk', 1));
+%               end
+                Igr1(Ibw1 > 0) = bgSignal;
+            end
+        end
+        disp([' Number of mito regions with mito_frac > maxMitoFr (=' num2str(options.maxMitoFr) '): ', num2str(num_mito_regions)]);
+        if options.dispOn
+            MS_S2D_ShowImage(Igr1, 'After the 2nd step of whitening out', options);
+        end
+
+        Igrw = Igr1;
+    end
 
 % -----------------------------------------------------------------------------
 

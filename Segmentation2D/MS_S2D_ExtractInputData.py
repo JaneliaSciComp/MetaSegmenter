@@ -6,10 +6,9 @@ import os
 import sys, re, optparse
 import tifffile as tiff
 import numpy
-from scipy import misc
+from PIL import Image 
 import httplib
 from pydvid import voxels, general
-
 import MS_LIB_Dict
 import MS_LIB_Options
 
@@ -73,6 +72,7 @@ def extract_image_data(input_data, input_type, ymin, ymax,\
         i = 0
         dir_path = os.path.join(ms_data,input_data)
         files_list = sorted(os.listdir(dir_path))
+        print " Sorted files_list=", files_list
         files = []
         for i in range(0, len(files_list)):
             file = files_list[i]
@@ -80,26 +80,20 @@ def extract_image_data(input_data, input_type, ymin, ymax,\
             if i in range(int(zmin), int(zmax)):
                 files.append(os.path.join(input_data, file_path))
             i = i+1
-        if re.search(".tif", files[0]):
-            im1 = tiff.imread(files[0])   
-        else:
-            im1 = misc.imread(files[0])
-        data_shape = im1.shape
+        im1 = Image.open(files[0]) 
         image_data = numpy.zeros((ymax-ymin,xmax-xmin), dtype="float")
         # Read files
+        print "\nFile paths=", files
         i = 0
         for i in range(0, len(files)):
             file = files[i]
-            if re.search(".tif", file):
-                im = tiff.imread(file)
-            else:
-                im = misc.imread(file)
+            im = numpy.array(Image.open(file))           
             if options.verbose:
-                print "file=", file, " data_shape=", data_shape, " im.shape=", im.shape
+                print "file=", file, " im.shape=", im.shape, " xmin, xmax=", xmin,xmax, " ymin,ymax=", ymin,ymax
             if len(im.shape) == 2:
-                image_data[:,:] = im[ymin:ymax, xmin:xmax]
+                image_data = im[ymin:ymax, xmin:xmax]
             else:
-                image_data[:,:] = im[ymin:ymax, xmin:xmax,1]
+                image_data = numpy.squeeze(im[ymin:ymax, xmin:xmax,1])
             i = i + 1
     elif input_type == "DVID":
         connection = httplib.HTTPConnection("emdata2.int.janelia.org:80",\
@@ -165,7 +159,8 @@ def process_inputs(input_data, input_type, input_label, dict_node_xyz, options):
     if options.verbose:
         print "Image_data shape=", image_data.shape
         print "Writing image data to file", output_path
-    misc.imsave(output_path, image_data)   
+    img = Image.fromarray(image_data)
+    img.save(output_path, "PNG")   
 
 # -----------------------------------------------------------------------
 

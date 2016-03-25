@@ -11,7 +11,8 @@ rh_home = os.environ['RHOANA_HOME'] # where source code is located
 
 def Segmentation2D_command_line_parser(parser):
     parser.add_option("-A", "--project",dest="project_code",help="code to be used with qsub",metavar="project_code", default="flyTEM")
-    parser.add_option("-b", "--no_dark",dest="no_dark",help="skip segmentation of dark structures",metavar="no_dark", default="0")
+    parser.add_option("-a", "--a", dest="a", help="parameter in the Renyi's entropy method for computing thresholds", default=0)
+    parser.add_option("-b", "--no_dark",dest="no_dark",help="skip segmentation of dark structures",metavar="no_dark", default="1")
     parser.add_option("-c", "--compile",action="store_true",dest="compile",help="compile Matlab file",metavar="compile",default=False)
     parser.add_option("-C", "--compile_all",action="store_true",dest="compile_all", help="compile all Matlab code", metavar="compile_all", default=False)
     parser.add_option("-D", "--debug",dest="debug",help="don't delete intermediate outputs", action="store_true", default=False)
@@ -19,7 +20,8 @@ def Segmentation2D_command_line_parser(parser):
     parser.add_option("-f", "--fracBlack", dest="fracBlack", help="fracBlack for detecting neurons (default=automatic)",metavar="fracBlack", default=None)
     parser.add_option("-F", "--fracBlack2",dest="fracBlack2",help="fracBlack for detect. dark str.",metavar="fracBlack2",default=None)
     parser.add_option("-i","--uint_type",dest="uint",help="8,16,32 or 64",metavar="uint",default="64")
-    parser.add_option("-l", "--nlen", dest="nlen", help="# of subsections for adaptive thresholding in y (length) direction",metavar="nlen", default="1")
+    parser.add_option("-I","--inc_ref", dest="inc_ref",action="store_true", help="perform incrementation refinement only",default=False)
+    parser.add_option("-l", "--nlen", dest="nlen", help="# of subsections for adaptive thresholding in y (length) direction",metavar="nlen", default="0")
     parser.add_option("-M", "--memb_prob",dest="memb_prob", help="a folder of HDF5 files containing membrane probabilities",\
                             metavar="memb_prob",default="")
     parser.add_option("-m", "--mito_prob",dest="mito_prob", help="a folder of HDF5 files containing mitochondria probabilities",\
@@ -29,14 +31,17 @@ def Segmentation2D_command_line_parser(parser):
     parser.add_option("-o", "--output_folder",dest="output_folder",help="output folder",metavar="output_folder",default=ms_data)
     parser.add_option("-p", "--processing_start",dest="processing_start",help="start processing from segm(=1),xmerg(=2),ymerg(=3),or epilog(=4) ",metavar="processing_start",default=1)
     parser.add_option("-P", "--processing_end",dest="processing_end",help="complete processing at step segm(=1),xmerg(=2),ymerg(=3),or epilog(=4) ",metavar="processing_end",default=4)
+    parser.add_option("-q", "--q", dest="q", help="parameter in the Tsallis entropy method for computing thresholds", default=0)
     parser.add_option("-r", "--resize",dest="resize_scale", help="scale for resizing BW image", metavar="resize_scale", default=1)
+    parser.add_option("-R", "--num_ref",dest="num_ref", help="number of refinement passes", metavar="num_ref", default=1)
     parser.add_option("-s", "--sub",dest="submission_command",help="source,qsub or qsub_*",metavar="submission_command",default="qsub")
     parser.add_option("-S", "--slots",dest="num_slots",help="# of cluster slots per 1 job (default=1)", metavar="num_slots", default=2)
     parser.add_option("-T", "--out_thr",action="store_true", dest="output_thresholds",help="whether or not to output intensity thresholds",metavar="output_thresholds",default=False)
     parser.add_option("-u", "--use_memb_probs",action="store_true", dest="use_memb_probs",help="whether or not to use membrane probs instead of grayscale signals",metavar="use_memb_probs",default=False)
     parser.add_option("-U", "--unprocessed",action="store_true",dest="unprocessed", help="reprocess only the data for which an output file does not exist",default=False)
     parser.add_option("-v", "--verbose",action="store_true",dest="verbose",help="increase the verbosity level of output",default=False)
-    parser.add_option("-w", "--nwid",   dest="nwid", help="# of subsections for adaptive thresholding in x (width) direction", metavar="nwid",  default="1")
+    parser.add_option("-w", "--nwid",   dest="nwid", help="# of subsections for adaptive thresholding in x (width) direction", metavar="nwid",  default="")
+    parser.add_option("-W", "--min_win",dest="min_win",help="min window size for adaptive thresholding",metavar="min_win",default="")
     parser.add_option("-X", "--nx",  dest="nx",  help="# of image fragments in x direction", metavar="nx", default=1)
     parser.add_option("-Y", "--ny",  dest="ny",  help="# of image fragments in y direction", metavar="ny", default=1)
     parser.add_option("-x", "--dx",  dest="dx",  help="# of scans for fragment overlap in x direction", metavar="dx", default=50)
@@ -102,7 +107,7 @@ def Fusion3D_command_line_parser(parser):
     parser.add_option("-F", "--layer_factor",dest="layer_factor",help="factor used in the integer optimization constraints",\
                             metavar="layer_factor",default="1.2")
     parser.add_option("-i","--uint_type",dest="uint",help="8,16,32 or 64",metavar="uint",default="64")
-    parser.add_option("-l", "--nlen",   dest="nlen", help="# of subsections for processing a fragment in y (length) direction",metavar="nlen", default="1")
+    parser.add_option("-l", "--nlen",   dest="nlen", help="# of subsections for processing a fragment in y (length) direction",metavar="nlen", default="")
     parser.add_option("-m", "--maxsize",dest="msize", help="# of subsections for processing a fragment in y (length) direction",metavar="nlen",default=sys.maxint)
     parser.add_option("-n", "--node",   dest="node", help="id of the cluster node to be used", metavar="node",  default=0)
     parser.add_option("-o", "--output_file",dest="output_file",help="output file",metavar="output_file",default="")
@@ -112,7 +117,7 @@ def Fusion3D_command_line_parser(parser):
     parser.add_option("-S", "--slots",dest="num_slots", help="# of cluster slots per 1 job (default=1)", metavar="num_slots", default=2)
     parser.add_option("-U", "--unprocessed",action="store_true",dest="unprocessed", help="reprocess only the data for which an output file does not exist",default=False)
     parser.add_option("-v", "--verbose",action="store_true",dest="verbose",help="increase the verbosity level of output",default=False)
-    parser.add_option("-w", "--nwid",   dest="nwid", help="# of subsections for processing a fragment in x (width) direction", metavar="nwid",  default="1")
+    parser.add_option("-w", "--nwid",   dest="nwid", help="# of subsections for processing a fragment in x (width) direction", metavar="nwid",  default="")
     parser.add_option("-X", "--nx",  dest="nx",  help="# of image fragments in x direction", metavar="nx", default=1)
     parser.add_option("-Y", "--ny",  dest="ny",  help="# of image fragments in y direction", metavar="ny", default=1)
     parser.add_option("-x", "--dx",  dest="dx",  help="# of scans for fragment overlap in x direction", metavar="dx", default=50)
@@ -195,6 +200,22 @@ def CreateH5Stack_command_line_parser(parser):
     parser.add_option("-i","--uint_type",dest="uint",help="8,16,32 or 64",metavar="uint",default="64")
     parser.add_option("-m","--match_str", dest="match_string",help="match str. for input file names", metavar="mstr",default="")
     parser.add_option("-o","--output_name",dest="output_name",help="name of the output HDF5 file", metavar="out", default="output.h5")
+    parser.add_option("-t","--type", dest="output_type", help="output type (='data','labels' or 'mask')", metavar="ot", default="")
+    parser.add_option("-v","--verbose",action="store_true",dest="verbose",help="increase verbosity of output", default=False)
+    parser.add_option("-u","--unmatch_str",dest="unmatch_string",help="unmatch str. for input file names",metavar="unmstr",default="")
+    parser.add_option("-z", "--zmin",dest="zmin",help="min z-layer to be processed", metavar="zmin", default=0)
+    parser.add_option("-Z", "--zmax",dest="zmax",help="max z-layer to be processed", metavar="zmax", default=sys.maxint)
+    return parser
+
+# ----------------------------------------------------------------------
+
+def Align3D_command_line_parser(parser):
+    parser.add_option("-c","--chunked",action="store_true",dest="chunked",help="each layer is chunk",metavar="chunked",default=False)
+    parser.add_option("-i","--uint_type",dest="uint",help="8,16,32 or 64",metavar="uint",default="64")
+    parser.add_option("-L", "--length", dest="ydim", help="y-size (length) of an image", metavar="ydim", default="")
+    parser.add_option("-H", "--height", dest="zdim", help="z-size (height, or # layers) of an image stack", metavar="zdim", default="")
+    parser.add_option("-m","--match_str", dest="match_string",help="match str. for input file names", metavar="mstr",default="")
+    parser.add_option("-o","--output_name",dest="output_name",help="name of the output PNG file", metavar="out", default="")
     parser.add_option("-t","--type", dest="output_type", help="output type (='data','labels' or 'mask')", metavar="ot", default="")
     parser.add_option("-v","--verbose",action="store_true",dest="verbose",help="increase verbosity of output", default=False)
     parser.add_option("-u","--unmatch_str",dest="unmatch_string",help="unmatch str. for input file names",metavar="unmstr",default="")
@@ -306,6 +327,7 @@ def ComputeVI_command_line_parser(parser):
     parser.add_option("-P", "--processing_step_end",dest="processing_step_end",help="end processing with matr(1), merge(2), trav(3), relab(4) or epil(5)",metavar="processing_step_end",default=2)
     parser.add_option("-s", "--sub",dest="submission_command", help="source, qsub or qsub_debug", metavar="submission_command", default="qsub")
     parser.add_option("-S", "--slots",dest="num_slots", help="# of cluster slots per 1 job (default=1)", metavar="num_slots", default=1)
+    parser.add_option("-t", "--transpose2", action="store_true", dest="transpose2", help="transpose each layer of the 2nd stack (need for the ground truth data)", default=False)
     parser.add_option("-v", "--verbose",action="store_true",dest="verbose",help="increase the verbosity level of output",default=False)
     parser.add_option("-z", "--zmin",dest="zmin",help="min z-layer to be processed", metavar="zmin", default=0)
     parser.add_option("-Z", "--zmax",dest="zmax",help="max z-layer to be processed", metavar="zmax", default=sys.maxint)

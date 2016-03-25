@@ -8,15 +8,16 @@ import tifffile as tiff
 import numpy as np
 from skimage.color import label2rgb
 from skimage import filters
+from skimage.morphology import disk, binary_erosion
 from PIL import Image
 
-def read_input(stack_file_name, layer_id):
-    if re.search(".h5", stack_file_name):
-        f = h5py.File(stack_file_name, 'r')
+def read_input(seg_stack_h5, layer_id):
+    if re.search(".h5", seg_stack_h5   ):
+        f = h5py.File(seg_stack_h5, 'r')
         key = f.keys()[0]
         data = f[key]
-    elif re.search(".tif", stack_file_name):
-        data = tiff.imread(stack_file_name)
+    elif re.search(".tif", seg_stack_h5):
+        data = tiff.imread(seg_stack_h5)
     else:
         sys.exit("Unrecognized stack type")
     print "data.shape=", data.shape, " layer_id=", layer_id
@@ -28,15 +29,15 @@ if __name__ == "__main__":
 
     print "len(sys.argv)=", len(sys.argv)
     if len(sys.argv) in [3,4]:      
-        stack_file_name = sys.argv[1]
-        RGB_name        = sys.argv[2]
-        layer_id        = 0
+        seg_stack_h5 = sys.argv[1]
+        RGB_name     = sys.argv[2]
+        layer_id     = 0
         if len(sys.argv) == 4:
             layer_id = int(sys.argv[3])
     else:
-        sys.exit("\nusage: MS_UT_SegStack2RGB.py input_stack_file output_RGB_file\n")
+        sys.exit("\nusage: MS_UT_SegStack2RGB.py input_stack_file output_RGB_file [ layer_id (default=0) ]\n")
 
-    data = np.squeeze(read_input(stack_file_name, layer_id))
+    data = np.squeeze(read_input(seg_stack_h5, layer_id))
     print "data.shape=", data.shape
     max_value = data.max()
     min_value = data.min()
@@ -50,7 +51,7 @@ if __name__ == "__main__":
 
     if round(max_value) == max_value and round(min_value) == min_value and max_value - min_value > 1:
         num_values = 0
-        for i in range(min_value, max_value + 1):
+        for i in range(int(min_value), int(max_value + 1)):
             if (data == i).sum() > 0:
                 num_values += 1
         print "num_values=", num_values

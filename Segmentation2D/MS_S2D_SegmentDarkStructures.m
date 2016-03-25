@@ -37,12 +37,11 @@ function Ibwd = MS_S2D_SegmentDarkStructures(inputName,fracBlack,fracBlack2,vara
     end
 
     im_size = size(I);
-    subsections = MS_S2D_DivideImageIntoSubsections(im_size, options);
     Igr = mat2gray(I);
     clear I;
 
-    [M_thr, M_thr2] = MS_S2D_GetThresholdIntensity(Igr, subsections, options);      
-    Ibwd = segment_dark_structures(Igr, M_thr, M_thr2, options);
+    [M_thr, M] = MS_S2D_GetThresholdIntensity(Igr, options);      
+    Ibwd = segment_dark_structures(Igr, M_thr, M_thr, options);
     Ibwd = MS_S2D_AddBoundaryPadding(Ibwd, 0);
 
     if options.dispOn
