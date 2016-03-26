@@ -19,7 +19,7 @@ def map_node_to_z(num_layers, options):
     dict_node_z = {}
     node = 1
 
-    for z in range(z_min, z_max):
+    for z in range(z_min, z_max+1):
         dict_node_z[node] = z
         node += 1
 
