@@ -100,7 +100,7 @@ if __name__ == "__main__":
     print "\nnum_N2_values=",  len(N2.values()),  " N2.values()=",  sorted(N2.values())
     print "\nnum_N12_values=", len(N12.values()), " N12.values()=", sorted(N12.values())
 
-    VI = MS_LIB_Util.counts2VI2D(N1, N2, N12)
+    VI,VI_U,VI_O = MS_LIB_Util.counts2VI2D(N1, N2, N12)
 
-    print "VI= ", VI
+    print "VI= ", VI, " VI_U=", VI_U, " VI_O=", VI_O
 

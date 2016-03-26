@@ -34,7 +34,7 @@ if __name__ == "__main__":
         sys.exit("\nusage: MS_CS_ComputeVI2D.py label1 label2 zmin zmax \n")
 
     z  = zmin
-    VI = numpy.zeros([int(zmax) - int(zmin)+1, 2], dtype=numpy.float32)
+    VI = numpy.zeros([int(zmax) - int(zmin)+1, 4], dtype=numpy.float32)
 
     # Extract counts
     while z < zmax:                
@@ -56,11 +56,13 @@ if __name__ == "__main__":
         print "z=", z, " num_N2_values=",  len(N2.values()),  " N2.values()=",  sorted(N2.values(),  reverse=True)
         print "z=", z, " num_N12_values=", len(N12.values()), " N12.values()=", sorted(N12.values(), reverse=True)
 
-        curr_VI = MS_LIB_Util.counts2VI2D(N1, N2, N12)
+        curr_VI,VI_U,VI_O = MS_LIB_Util.counts2VI2D(N1, N2, N12)
 
         VI[z - zmin, 0] = z
         VI[z - zmin, 1] = curr_VI
-        print "VI for layer ", z, "= ", VI[z - zmin, 1]
+        VI[z - zmin, 2] = VI_U
+        VI[z - zmin, 3] = VI_O
+        print "VI, VI_U, VI_O for layer ", z, "= ", VI[z - zmin, 1], VI[z - zmin, 2],  VI[z - zmin, 3]
         z = z + 1
        
     # Output VI to file
