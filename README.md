@@ -1,5 +1,4 @@
 ![alt text](https://cloud.githubusercontent.com/assets/1093770/24422906/2ba9caae-13c9-11e7-9177-c54f5c2c1f62.png)
-
 Copyright (c) 2017, HHMI-Janelia Research Campus All rights reserved.
 Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
 * Redistributions of source code must retain the above copyright
