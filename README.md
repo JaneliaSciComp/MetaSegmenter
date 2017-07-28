@@ -1,3 +1,6 @@
+Janelia Research Campus
+-----------------------
+
 ![alt text](https://cloud.githubusercontent.com/assets/1093770/24422906/2ba9caae-13c9-11e7-9177-c54f5c2c1f62.png)
 
 Copyright (c) 2017, HHMI-Janelia Research Campus All rights reserved.
@@ -17,3 +20,5 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 Contributor: Gennady Denisov
 
 Acknowledgements: Khaled Khairy
+
+This repository stores a code for the MetaSegmenter pipeline, aimed at 3D segmentation of TEM images of a fly brain.
