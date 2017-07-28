@@ -24,4 +24,4 @@ Contributor: Gennady Denisov
 
 Acknowledgements: Khaled Khairy
 
-This repository stores a code for the MetaSegmenter pipeline, aimed at 3D segmentation of TEM images of a fly brain.
+This repository stores a code for 3D segmentation of TEM images of a fly brain via a variety of approaches.
